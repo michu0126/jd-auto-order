@@ -1,0 +1,28 @@
+# Local environments and generated files
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
+# Personal runtime data and tasks
+data/
+.state/
+artifacts/
+config.yaml
+config.json
+config.backup.yaml
+config.pending.yaml
+# Local credentials and environment files
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.pfx
+*.p12
+# Editors and OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

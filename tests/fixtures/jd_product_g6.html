@@ -1,0 +1,29 @@
+<!doctype html><html><body>
+<!-- 2026-10-31 LG G6 商品页实测结构的脱敏本地夹具；价格/身份/跳转均为测试数据。 -->
+<a class="nickname">本地模拟账号</a>
+<aside><div class="continuous-product--title">推荐的其他商品</div><div>立即购买</div></aside>
+<div id="page-right-information" class="page-right-information">
+  <div class="sku-title"><span class="sku-title-text"><span class="sku-title-name">测试商品</span></span></div>
+  <div class="logistics-item logistics-delivery-time">18:00前付款，预计明日送达</div>
+  <div class="horizontal-layout specification-series-layout"><div class="layout-label">系列品</div>
+    <div class="layout-content"><div class="specification-series-item specification-series-item--selected"><span class="specification-series-item-text">G6 OLED电视</span></div></div>
+  </div>
+  <div class="specifications-panel-content">
+    <div class="specification-group specification-group-0"><div class="specification-group-label">选择颜色</div>
+      <div class="specification-group-content">
+        <div class="specification-item-sku has-image specification-item-sku--selected"><span class="specification-item-sku-text">黑色</span></div>
+        <div class="specification-item-sku has-image" onclick="this.parentElement.querySelectorAll('.specification-item-sku').forEach(e=>e.classList.remove('specification-item-sku--selected'));this.classList.add('specification-item-sku--selected')"><span class="specification-item-sku-text">白色</span></div>
+        <div class="specification-item-sku has-image specification-item-sku--lack" title="其他颜色 无货"><span class="specification-item-sku-text">其他颜色</span><span class="specification-item-sku--lack-tag">无货</span></div>
+      </div>
+    </div>
+    <div class="specification-group specification-group-1"><div class="specification-group-label">版本</div><div class="specification-group-content">
+      <div class="specification-item-sku specification-item-sku--selected"><span class="specification-item-sku-text">256GB</span></div>
+    </div></div>
+  </div>
+</div>
+<div class="page-right-RightBtns"><div class="bottom-btns-root">
+  <div id="add-to-cart"><div class="first-row"><div>加入购物车</div></div></div>
+  <div class="" onclick="location.href='https://trade.jd.com/shopping/order/getOrderInfo.action'"><div class="first-row"><div>立即购买</div></div></div>
+</div></div>
+<input id="buy-num" class="pc-component-stepper__input" aria-valuemin="1" aria-valuemax="999" type="text" value="1">
+</body></html>

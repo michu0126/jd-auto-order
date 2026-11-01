@@ -1,0 +1,294 @@
+{
+  "format": 1,
+  "kind": "clean-source-github-repository",
+  "files": {
+    ".gitignore": {
+      "sha256": "00d94891c7ac423503bf0f1f4f64cf5343e530a5759d6a33cfb30738522d4681",
+      "bytes": 372
+    },
+    "README.md": {
+      "sha256": "4a353c862ea10c2dc3900e539161f769f169aab4860c0818fb08cbef083ba3a9",
+      "bytes": 12066
+    },
+    "SHARE_README.md": {
+      "sha256": "40683b78036acf74ee8d8007dee2661db57dcbf010708a4e524a7946394bc43d",
+      "bytes": 11691
+    },
+    "config.example.yaml": {
+      "sha256": "6ed55c9deb26fe57f0588cba302560921e8c35df8bbbda15e9baac9b7759036e",
+      "bytes": 2396
+    },
+    "core/__init__.py": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "core/browser_settings.py": {
+      "sha256": "4e9d7cb424f395c1dbac0ed5f3bb31a03047bbb3c969ec0e839d16125b755566",
+      "bytes": 2259
+    },
+    "core/checkout_labels.py": {
+      "sha256": "39d91fd722371683fb3b92607c8bbef1b6a57aa50e7412e97b4f9d6da3e20d77",
+      "bytes": 325
+    },
+    "core/clock_sync.py": {
+      "sha256": "f7ca0025467987202e31751c4fdbd6284cc09bd8e2299422f57ba62d371c15d5",
+      "bytes": 2044
+    },
+    "core/config.py": {
+      "sha256": "d767d9a6dea832725c0ab344611911692426f14865beb56856088775b79c9e88",
+      "bytes": 18040
+    },
+    "core/config_store.py": {
+      "sha256": "6bbd85748e4aa954db1fca4ffef44bf7ff455687417ae52494fedd0f43214f05",
+      "bytes": 9758
+    },
+    "core/errors.py": {
+      "sha256": "9e66bd8e0e3b2a33dde9531f0236b4466ccae186506a3d6c9b952dd6457964ad",
+      "bytes": 354
+    },
+    "core/payment_secret.py": {
+      "sha256": "d5a3d1eaffd46b2ea9ee5d2de6d9971126f7ba2b39b37e13ef129984be75060c",
+      "bytes": 1157
+    },
+    "core/platforms.py": {
+      "sha256": "2afba47e20a7a3b14e16780864f9a1fac8f28862d8e42e1bbb76a5febc8780e2",
+      "bytes": 3788
+    },
+    "core/purchase_lock.py": {
+      "sha256": "70126e21821ad4b12bc764d82e8affd9d5801ab06c69b3dba985d0317932f143",
+      "bytes": 4845
+    },
+    "core/recurrence.py": {
+      "sha256": "f2c34a0f0cfdb0c170f0dae0a24323031a272b29ca5fe68cee00e21787bac97f",
+      "bytes": 492
+    },
+    "core/retry.py": {
+      "sha256": "1bfb942a0c955d9bf0e5bc58b9e802c86e5e27b729d6403f109978b23a9eeeeb",
+      "bytes": 581
+    },
+    "core/scheduler.py": {
+      "sha256": "0fe35244f32418828eb58f564a1e664d1aaf907a5800ad71307513b3213066b9",
+      "bytes": 1911
+    },
+    "core/state_machine.py": {
+      "sha256": "d039704b04a3b34fbbdedd5773a5543e10635254ccd550278070ea78e7f0734d",
+      "bytes": 2948
+    },
+    "core/worker.py": {
+      "sha256": "2c7ee8298f285a5c7689b5d72e9a5ba7532689733fbe8a83fceff83935c312d2",
+      "bytes": 897
+    },
+    "jd/__init__.py": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "jd/auth.py": {
+      "sha256": "236d4407de369ea4dd9571482dfb8156a58bcaae9c3679677b6e4c48ab84cadb",
+      "bytes": 4011
+    },
+    "jd/browser.py": {
+      "sha256": "88bef646ecd4e454c6af500219eec9d7af9a4554410b64a315ae7f5791360322",
+      "bytes": 5492
+    },
+    "jd/cart.py": {
+      "sha256": "ef1b17a7f66aff19e4f647f73649fc10d12a67711a2d4834684915ce4ed17eba",
+      "bytes": 11286
+    },
+    "jd/cart_scan.py": {
+      "sha256": "e1485ff512ca1fdaddfb117af3ce1cb6476f72e4f35e5095322aeda9070a0142",
+      "bytes": 6915
+    },
+    "jd/checkout.py": {
+      "sha256": "d2e6670a6b377f85fd5b930b42073d69fb1fbf795260b6c1b9df1754a5970f76",
+      "bytes": 15897
+    },
+    "jd/common.py": {
+      "sha256": "2158d99b3fc6e8834ce169d574e483eaa3c5c7bc4f6ef2f41d77decb097ec37d",
+      "bytes": 14185
+    },
+    "jd/dom.py": {
+      "sha256": "3b5eb819a5ccb61040c3c332afc52a1ecd0f639ee3b29a80f0d986f7e8828cf6",
+      "bytes": 375
+    },
+    "jd/embedded_checkout.py": {
+      "sha256": "5334c28842046f3f2ecfc75d1a0838a983333f53296f6bd47119e243d9374a0c",
+      "bytes": 10307
+    },
+    "jd/login.py": {
+      "sha256": "4973d4f261f6bed59ef86e7d300d77b7eae38c7db24cf5f88b84661855224984",
+      "bytes": 8503
+    },
+    "jd/order.py": {
+      "sha256": "426ce5e1f4c41f42baa68a0ba7319b08e00b6eb77ec60837bd8241c4cb872a69",
+      "bytes": 10592
+    },
+    "jd/password_prompt.py": {
+      "sha256": "2b93f80b02db3789024f0cbbe4c4d231728452dc65899a5cbbef61072ae6f69f",
+      "bytes": 2686
+    },
+    "jd/product.py": {
+      "sha256": "bd6b937cd16f302529d4c59c3d4fa47f6be1e5f415b18d3adaab589bd9be36bb",
+      "bytes": 7916
+    },
+    "jd/submit_button.py": {
+      "sha256": "79a7c4495727b4394125d1c5bd8f6245e7866458ddb4303fd5c657be48013530",
+      "bytes": 2629
+    },
+    "main.py": {
+      "sha256": "36c7c67712843e782be6015fbb080f22bca4863bd139ea13ede2bd1598a91725",
+      "bytes": 37003
+    },
+    "marketplaces/__init__.py": {
+      "sha256": "32f5da2892beb78a9e551569393c56807012cbd3f84d6bcab3714b74020dca26",
+      "bytes": 106
+    },
+    "marketplaces/taobao_checkout.py": {
+      "sha256": "9c59f749a139c4983b04fbead21cd3c766d100d29b9f05ed5e5497ec8fe7ca78",
+      "bytes": 12359
+    },
+    "marketplaces/taobao_product.py": {
+      "sha256": "49e58f72733a5f071aed542247a709fd08f7cdd85a2b0bf59fe351926b449d12",
+      "bytes": 6155
+    },
+    "marketplaces/web.py": {
+      "sha256": "c8a8c5cca710d35ed7a9b2ae631bd3b6ef8a5ace52c8efda95e6eaab3ae4d451",
+      "bytes": 16516
+    },
+    "requirements.txt": {
+      "sha256": "fdf8f9f58d42c2e2c9ae5e71d0c14efd9c074fa4319dc05d34b04b656598d8c4",
+      "bytes": 33
+    },
+    "setup.bat": {
+      "sha256": "2f572b486207dedf80004bd5b2fe05b6b085bac5f042f098f89b31e181400f98",
+      "bytes": 769
+    },
+    "setup.ps1": {
+      "sha256": "dd35f8e67c9ca78b7386b644f9272178cb603b9f03fce754b328fcc1d4876708",
+      "bytes": 942
+    },
+    "start.bat": {
+      "sha256": "784b4288f7450e720eae763babfe21e5e2c4337c5c18771c9155cb260989e0aa",
+      "bytes": 278
+    },
+    "start.ps1": {
+      "sha256": "f1810538b332e8ffa05068b5ba9c2e92d109b89e4fffe33bd031696796ae8de4",
+      "bytes": 584
+    },
+    "tests/fixtures/config.yaml": {
+      "sha256": "6af9d585c06aafcc1c4e9249d4da810fd7fef1932ffbe4ca1e8617d755701a3d",
+      "bytes": 469
+    },
+    "tests/fixtures/jd_checkout_baitiao.html": {
+      "sha256": "c1e79f003587e7253b8d6205c0eee8c2684d2ec229d6ba5351a4a6e9c3353703",
+      "bytes": 1502
+    },
+    "tests/fixtures/jd_product_g6.html": {
+      "sha256": "d1d0eae5d8e8d18b422c7be64721fe9e48c2d7a08079c1b42c35281eaf00fec0",
+      "bytes": 2570
+    },
+    "tests/test_browser.py": {
+      "sha256": "4389727c59e8bea94d255a5e30dd564b83dbb022912a0fbc8126b5902d82fa10",
+      "bytes": 105706
+    },
+    "tests/test_browser_connection.py": {
+      "sha256": "c55203d6376abfe4835f182897cf2731a2824eab139015e3b5130002bb9aa6a6",
+      "bytes": 10314
+    },
+    "tests/test_cart_prewarm.py": {
+      "sha256": "bbd4c7d02e1a1a9b007117dd8cc09805aa87a3c772a8e2d37013a74d18a47699",
+      "bytes": 12102
+    },
+    "tests/test_concurrent_tasks.py": {
+      "sha256": "2ba36a04b1fce575f8a10d0621cdf30c08699d90db250f1fb8f9cca35bfe5bb3",
+      "bytes": 8922
+    },
+    "tests/test_config_store.py": {
+      "sha256": "67ee2c61bf4ab572ec3d7f9480619065dcaa929c7d7c10a875d3850e50612099",
+      "bytes": 8933
+    },
+    "tests/test_core.py": {
+      "sha256": "29ead62332c52cac2f72bab2f4c37e552cdf9695d297defec58f65aaf294e17f",
+      "bytes": 11205
+    },
+    "tests/test_embedded_checkout.py": {
+      "sha256": "815a66755c2b2c495a9330bef48a364d05ec6027801884bd7abd6e2306438161",
+      "bytes": 10936
+    },
+    "tests/test_login_wait.py": {
+      "sha256": "ec4b6231e294fef5e266e7bbbe646b32de0e0f115725930a45ebfe8276918c16",
+      "bytes": 3625
+    },
+    "tests/test_marketplace_web.py": {
+      "sha256": "ef8474ba28c4748f317a0f3ba40ca44da12d437307093ca196cbd610a6eeaf2c",
+      "bytes": 8009
+    },
+    "tests/test_multiplatform.py": {
+      "sha256": "8ce973d2a56ffc9fc15369d608f27af2cadbdbde819f9b30f7c4e1293e4ff824",
+      "bytes": 9456
+    },
+    "tests/test_payment_secret.py": {
+      "sha256": "7b4e22b8a2f24f08e4483158dad1e67da6627bbebf30844ef092043eae3593eb",
+      "bytes": 2524
+    },
+    "tests/test_product_prewarm.py": {
+      "sha256": "1d71667cc78533da541d29c61579fa3c24404226859ed337274b64f24456859e",
+      "bytes": 4104
+    },
+    "tests/test_purchase_lock.py": {
+      "sha256": "3eae68d2189cbdcb5076b6249da2b52816872de038bc9a724e6cb259391aaac5",
+      "bytes": 15842
+    },
+    "tests/test_taobao_checkout.py": {
+      "sha256": "2d74dd0aacaa7f4d11d91f02d32c26495bbe6d9c196aec9184347c2d92a3ecfb",
+      "bytes": 16252
+    },
+    "tests/test_tmall_product.py": {
+      "sha256": "2b35d9ae0cf2bb34efd90aadfed1bc864f5e3fd42d1449c58281bec4b4e667c2",
+      "bytes": 5171
+    },
+    "tests/test_ui.py": {
+      "sha256": "0b832b89c86a53d36f676534f727e827607a8ecf42277afb7e5c326e25251d4e",
+      "bytes": 16700
+    },
+    "tests/test_web.py": {
+      "sha256": "2c02880781cd31b8421a1fe7aee51b5b25517ca51ae1d0b30f53d0700674b7bc",
+      "bytes": 8552
+    },
+    "tools/package_source.py": {
+      "sha256": "9a1d4fd71c0e4e50a69d40f0f6849c181e526770aa82d8198a467e2f0f478afb",
+      "bytes": 4160
+    },
+    "tools/verify_share_package.py": {
+      "sha256": "d9390856a94bf7fc0737c4f635c2ae5101f07d4b66f33c8398a6473058f69266",
+      "bytes": 9153
+    },
+    "ui/app.js": {
+      "sha256": "0ce343c946973c0bb8da145f8f7927aa585837e943235f8e3560f620fcd1c813",
+      "bytes": 17210
+    },
+    "ui/index.html": {
+      "sha256": "0b6dfc9c29aff8b94988a30f8b85eff9057ec454eae20d5e453bd734dcb03c44",
+      "bytes": 9923
+    },
+    "ui/style.css": {
+      "sha256": "1c02647aa8ced83131d8ce96e3d147d13d5e3c8152d49c5af734b80cbe080302",
+      "bytes": 5888
+    },
+    "utils/__init__.py": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "utils/logger.py": {
+      "sha256": "a347b5cf8de9bb23bee16c8f105ee64d9991a313bdb3bcf5dce7657f24e5936b",
+      "bytes": 992
+    },
+    "utils/notifier.py": {
+      "sha256": "8f06b87df7aa57519efb47bd44fc1d44a2c67c75a14fde87d235c699383716df",
+      "bytes": 1941
+    },
+    "webapp.py": {
+      "sha256": "4cddd60ce0a71e3bacd8bbd0e4e5f234a5d8a6c7f2ee995e3868c9efca8fd92d",
+      "bytes": 13625
+    }
+  }
+}

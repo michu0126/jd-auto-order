@@ -1,0 +1,23 @@
+jd:
+  browser: chrome
+  headless: true
+  keep_browser_open: false
+  session_dir: ./data/session
+purchase:
+  id: task-1
+  name: 我的抢购商品
+  sku_id: "123456789"
+  product_url: https://item.jd.com/123456789.html
+  quantity: 1
+  sku_options: {}
+  purchase_mode: direct
+  target_time: "2026-11-11 20:00:00"
+  timezone: Asia/Shanghai
+  max_price: 2999
+  auto_submit: true
+timing:
+  sync_clock: false
+notification:
+  desktop: false
+logging:
+  save_screenshots: false

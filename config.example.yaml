@@ -1,0 +1,78 @@
+jd:
+  login_mode: qrcode
+  browser: chrome
+  # existing 复用已打开且经 Chrome 授权的普通浏览器；persistent 使用独立资料。
+  browser_connection: persistent
+  cdp_endpoint: auto
+  cdp_user_data_dir: ""
+  cdp_timeout_seconds: 60
+  headless: false
+  session_dir: ./data/session
+  manual_timeout_seconds: 300
+  login_check_timeout_seconds: 15
+  login_settle_seconds: 1.5
+  action_timeout_ms: 5000
+  result_timeout_seconds: 30
+  keep_browser_open: true
+  block_media: true
+  # 在内置结算文案之外追加活动页按钮原文。
+  submit_button_texts: []
+  payment_preference:
+    # 沿用京东结算页面默认选择，不点击或切换支付通道、银行卡或分期。
+    channel: default
+
+# 从管理页扫描购物车、选择商品后，任务会自动写入 tasks。
+purchase:
+  timezone: Asia/Shanghai
+  purchase_mode: cart
+  payment_method: online
+  auto_submit: true
+  quantity: 1
+  sku_options: {}
+  require_breakdown: true
+  discounts:
+    use_existing_coupons: true
+    coupon_text: ""
+    use_beans: false
+    use_red_packets: false
+tasks: []
+
+# 附加平台的真实下单尚待页面适配；不附带猜测的定位器。
+# 两个平台独立使用正常浏览器登录态，不共享京东会话和支付密码。
+platforms:
+  taobao:
+    session_dir: ./data/session-taobao
+    selectors: {}
+    checkout_paths: []
+    result_paths: []
+  douyin:
+    session_dir: ./data/session-douyin
+    selectors: {}
+    checkout_paths: []
+    result_paths: []
+
+timing:
+  prewarm_seconds: 60
+  # 启动即预加载购物车，开售前60秒复查、30秒再预加载；每轮加载最长15秒。
+  cart_preload_timeout_seconds: 15
+  # 只缩短购物车勾选/数量控件等待；结算与支付仍使用 jd.action_timeout_ms。
+  cart_action_timeout_ms: 300
+  # 京东购物车任务：提前 2 秒开始，每轮结束后间隔 200ms，勾选核对成功即停止刷新。
+  cart_refresh_enabled: true
+  cart_refresh_start_before_seconds: 2
+  cart_refresh_interval_ms: 200
+  precision_mode: true
+  sync_clock: true
+  ntp_servers: [ntp.aliyun.com, time.cloudflare.com, time.windows.com]
+  clock_offset_ms: 0
+retry:
+  enabled: true
+  interval_ms: 500
+  max_attempts: 10
+  timeout_seconds: 30
+notification:
+  desktop: true
+logging:
+  level: INFO
+  save_screenshots: true
+selectors: {}
