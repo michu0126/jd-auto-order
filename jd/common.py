@@ -1,4 +1,5 @@
 import asyncio
+import json
 import logging
 import re
 import time
@@ -9,7 +10,7 @@ from core.config import CST
 from core.checkout_labels import SUBMIT_BUTTON_TEXTS
 from core.errors import LoginRequired, Retryable, StopOrder, VerificationRequired
 from jd.auth import AUTH_USER, observe
-from jd.submit_button import find_submit
+from jd.submit_button import checkout_url, find_submit
 
 LOG = logging.getLogger(__name__)
 SELECTORS = {
@@ -49,6 +50,8 @@ SELECTORS = {
 }
 ROLES = {"checkout": ("去结算",), "submit": SUBMIT_BUTTON_TEXTS,
          "buy_now": ("立即购买", "立即抢购", "抢购"), "add_cart": ("加入购物车",)}
+CHECKOUT_FIELDS = {"submit", "checkout_goods", "checkout_quantity", "total", "subtotal",
+                   "freight", "discount", "address", "beans", "red_packets", "coupon"}
 
 
 async def first_visible(scope, selector):
@@ -90,10 +93,24 @@ class PageTools:
     def page(self):
         return self.s.page
 
+    def page_location(self):
+        # 日志只记录站点和路径，不携带账号、地址或临时查询参数。
+        parsed = urlparse(self.page.url)
+        return (parsed.hostname or parsed.scheme) + parsed.path
+
+    async def require_checkout(self):
+        if checkout_url(self.page.url):
+            return
+        await self.guard()  # 登录/人工验证按原流程暂停，不能当成普通导航失败。
+        if not checkout_url(self.page.url):
+            raise Retryable(f"当前不是订单结算页，尚未进入或已返回购物车；页面={self.page_location()}")
+
     async def find(self, key, required=True, scope=None, timeout=None, check_page=False):
         scope = scope if scope is not None else self.page
         deadline = time.monotonic() + (timeout if timeout is not None else self.s.cfg.jd["action_timeout_ms"]) / 1000
         while True:
+            if key in CHECKOUT_FIELDS:
+                await self.require_checkout()
             item = (await find_submit(self.page, self.s.selectors[key], self.s.cfg.jd["submit_button_texts"], "submit" in self.s.cfg.selectors)
                     if key == "submit" else await first_visible(scope, self.s.selectors[key]))
             if item is not None:
@@ -111,7 +128,7 @@ class PageTools:
                 # 等待期间也可能跳到验证页，不能等满控件超时再刷新掉验证。
                 await self.guard()
             if time.monotonic() >= deadline:
-                raise Retryable(f"未找到 {key}，可能尚未开售或需要更新选择器")
+                raise Retryable(f"未找到 {key}，可能尚未开售或需要更新选择器；页面={self.page_location()}")
             await asyncio.sleep(0.05)
 
     async def guard(self):
@@ -238,6 +255,14 @@ class PageTools:
         folder = self.s.cfg.data_dir / "screenshots" / self.s.task.id
         folder.mkdir(parents=True, exist_ok=True)
         stamp = datetime.now(CST).strftime("%Y%m%d-%H%M%S-%f")
+        location = self.page_location()
+        LOG.info("[%s] 调试快照 %s：页面=%s", self.s.task.id, reason, location)
+        try:
+            (folder / f"{stamp}-{reason}.json").write_text(json.dumps({"page": location,
+                "reason": reason, "cart_checkout_started": getattr(self.s, "cart_checkout_started", False),
+                "cart_checkout_reached": getattr(self.s, "cart_checkout_reached", False)}, ensure_ascii=False), encoding="utf-8")
+        except OSError:
+            LOG.warning("[%s] 保存调试页面信息失败", self.s.task.id)
         try:
             await self.page.screenshot(path=str(folder / f"{stamp}-{reason}.png"), full_page=True, timeout=10000,
                 mask=[self.page.locator(".payment-summary-password__input, input[type=password]")])

@@ -16,7 +16,7 @@ from jd.auth import AuthState
 from core.scheduler import Scheduler
 from core.state_machine import StateStore
 from jd.browser import Session
-from main import run_one
+from main import purchase_attempt, run_one
 from jd.cart_scan import CartScanner, extract
 from jd.common import sku_ids
 from core.payment_secret import PaymentSecret
@@ -135,6 +135,7 @@ class BrowserTests(unittest.IsolatedAsyncioTestCase):
         await route.fulfill(status=200, content_type="text/html; charset=utf-8", body=html)
 
     async def asyncTearDown(self):
+        self.session.cart.stop_transition_watch()
         self.store.close()
         self.scheduler.close()
         await self.context.close()
@@ -1008,6 +1009,128 @@ class BrowserTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(await run_one(self.session, asyncio.Lock(), dry_run=True))
         self.assertEqual(len(self.cart_load_times), 1)
         self.assertEqual(self.store.db.execute("SELECT count(*) FROM events WHERE state='trigger'").fetchone()[0], 1)
+        self.assertEqual(self.submit_hits, 0)
+
+    async def test_delayed_cart_checkout_popup_is_followed_without_refresh(self):
+        self.session.task.mode = "cart"
+        self.session.task.source = "cart"
+        self.cart_html = CART.replace(
+            '<a class="submit-btn" href="https://trade.jd.com/shopping/order/getOrderInfo.action">去结算</a>',
+            '''<button class="submit-btn">去结算</button><script>
+            document.querySelector('.submit-btn').addEventListener('click', () => {
+              window.checkoutClicks=(window.checkoutClicks||0)+1;
+              setTimeout(()=>window.open('https://trade.jd.com/shopping/order/getOrderInfo.action'),180);
+            });</script>''')
+        self.assertTrue(await run_one(self.session, asyncio.Lock(), dry_run=True))
+        self.assertIsNot(self.session.page, self.page)
+        self.assertEqual(await self.page.evaluate("window.checkoutClicks"), 1)
+        self.assertEqual(len(self.cart_load_times), 1)
+        self.assertTrue(self.session.cart_checkout_reached)
+        self.assertEqual(self.submit_hits, 0)
+
+    async def test_cart_checkout_no_navigation_retries_selected_page(self):
+        self.session.task.mode = "cart"
+        self.session.task.source = "cart"
+        self.cart_html = CART.replace(
+            '<a class="submit-btn" href="https://trade.jd.com/shopping/order/getOrderInfo.action">去结算</a>',
+            '''<button class="submit-btn" onclick="window.checkoutClicks=(window.checkoutClicks||0)+1;
+            if(window.checkoutClicks===2) location.href='https://trade.jd.com/shopping/order/getOrderInfo.action'">去结算</button>''')
+        with self.assertRaisesRegex(Retryable, '仍停留购物车'):
+            await self.session.cart.checkout()
+        self.assertFalse(self.session.cart_checkout_started)
+        self.assertEqual(await self.page.evaluate('window.checkoutClicks'), 1)
+        await purchase_attempt(self.session, False, 2)
+        self.assertIn('trade.jd.com', self.session.page.url)
+        self.assertEqual(len(self.cart_load_times), 1)
+        self.assertEqual(self.store.db.execute("SELECT count(*) FROM submissions").fetchone()[0], 0)
+
+    async def test_checkout_returned_to_cart_reenters_without_reload(self):
+        self.session.task.mode = "cart"
+        self.session.task.source = "cart"
+        await self.session.cart.checkout()
+        self.cart_html = CART.replace('type="checkbox"', 'type="checkbox" checked', 1).replace(
+            'type="checkbox" checked><a href="https://item.jd.com/999999999.html"',
+            'type="checkbox"><a href="https://item.jd.com/999999999.html"').replace('value="1"', 'value="2"', 1)
+        await self.page.goto('https://cart.jd.com/cart_index')
+        self.assertTrue(self.session.cart_checkout_reached)
+        await purchase_attempt(self.session, False, 2)
+        self.assertIn('trade.jd.com', self.session.page.url)
+        self.assertEqual(len(self.cart_load_times), 2)  # 首次加载和网站返回；恢复没有主动刷新。
+        self.assertEqual(self.submit_hits, 0)
+
+    async def test_returned_cart_out_of_stock_does_not_reenter_checkout(self):
+        self.session.task.mode = "cart"
+        self.session.task.source = "cart"
+        await self.session.cart.checkout()
+        self.cart_html = CART.replace('type="checkbox"', 'type="checkbox" disabled', 1)
+        await self.page.goto('https://cart.jd.com/cart_index')
+        before = self.store.db.execute("SELECT count(*) FROM events WHERE state='checkout_start'").fetchone()[0]
+        with self.assertRaisesRegex(Retryable, '暂不可勾选'):
+            await purchase_attempt(self.session, False, 2)
+        after = self.store.db.execute("SELECT count(*) FROM events WHERE state='checkout_start'").fetchone()[0]
+        self.assertEqual(before, after)
+        self.assertEqual(len(self.cart_load_times), 2)
+        self.assertEqual(self.submit_hits, 0)
+
+    async def test_missing_freight_detects_redirect_to_cart_during_wait(self):
+        self.checkout_html = CHECKOUT.replace('<span id="freightPriceId">￥9.00</span>', '')
+        await self.checkout()
+        await self.page.evaluate("setTimeout(()=>location.href='https://cart.jd.com/cart_index',150)")
+        with self.assertRaisesRegex(Retryable, '当前不是订单结算页.*cart.jd.com/cart_index'):
+            await self.session.checkout.amount('freight', required=True)
+        self.assertEqual(self.submit_hits, 0)
+
+    async def test_cart_transition_does_not_adopt_existing_unrelated_checkout(self):
+        self.session.concurrent_ui = True
+        other = await self.context.new_page()
+        await other.goto('https://trade.jd.com/shopping/order/getOrderInfo.action')
+        self.cart_html = CART.replace(
+            'href="https://trade.jd.com/shopping/order/getOrderInfo.action"', 'href="#" onclick="return false"')
+        try:
+            with self.assertRaisesRegex(Retryable, '仍停留购物车'):
+                await self.session.cart.checkout()
+            self.assertIs(self.session.page, self.page)
+            self.assertIn('cart.jd.com', self.page.url)
+            self.assertEqual(self.submit_hits, 0)
+        finally:
+            await other.close()
+
+    async def test_late_checkout_popup_between_retries_is_not_clicked_again(self):
+        self.session.concurrent_ui = True
+        popup_delay_ms = self.cfg.jd['action_timeout_ms'] + 3000
+        self.cart_html = CART.replace(
+            '<a class="submit-btn" href="https://trade.jd.com/shopping/order/getOrderInfo.action">去结算</a>',
+            '''<button class="submit-btn">去结算</button><script>
+            document.querySelector('.submit-btn').addEventListener('click', () => {
+              window.checkoutClicks=(window.checkoutClicks||0)+1;
+              setTimeout(()=>window.open('https://trade.jd.com/shopping/order/getOrderInfo.action'),2600);
+            });</script>''')
+        self.cart_html = self.cart_html.replace('2600', str(popup_delay_ms))
+        async with self.page.expect_popup(timeout=popup_delay_ms + 5000) as popup:
+            with self.assertRaisesRegex(Retryable, '仍停留购物车'):
+                await self.session.cart.checkout()
+        child = await popup.value
+        await child.wait_for_load_state('domcontentloaded')
+        await self.session.cart.checkout(refresh=True)
+        self.assertIs(self.session.page, child)
+        self.assertEqual(await self.page.evaluate('window.checkoutClicks'), 1)
+        self.assertEqual(len(self.cart_load_times), 1)
+        self.assertEqual(self.submit_hits, 0)
+
+    async def test_checkout_verification_popup_pauses_without_clicking_challenge(self):
+        self.session.concurrent_ui = True
+        await self.context.route('**/quick-verification', lambda route: route.fulfill(
+            content_type='text/html; charset=utf-8', body=QUICK_VERIFY))
+        self.cart_html = CART.replace(
+            '<a class="submit-btn" href="https://trade.jd.com/shopping/order/getOrderInfo.action">去结算</a>',
+            '''<button class="submit-btn">去结算</button><script>
+            document.querySelector('.submit-btn').addEventListener('click', () => {
+              setTimeout(()=>window.open('https://cfe.m.jd.com/quick-verification'),150);
+            });</script>''')
+        with self.assertRaises(VerificationRequired):
+            await self.session.cart.checkout()
+        self.assertIn('cfe.m.jd.com', self.session.page.url)
+        self.assertEqual(await self.session.page.evaluate('window.verifyClicks||0'), 0)
         self.assertEqual(self.submit_hits, 0)
 
     async def test_cart_explicit_network_failure_can_reload_then_finish_dry_run(self):

@@ -2,16 +2,76 @@ import asyncio
 import logging
 import time
 from contextlib import asynccontextmanager
+from urllib.parse import urlparse
 
 from playwright.async_api import Error as PlaywrightError
 
 from core.errors import Retryable, StopOrder
 from jd.common import PageTools, SKU_IDS_JS
+from jd.submit_button import checkout_url
 
 LOG = logging.getLogger(__name__)
 
 
 class Cart(PageTools):
+    def __init__(self, session):
+        super().__init__(session)
+        self._transition_origin = None
+        self._transition_before = set()
+        self._transition_pages = []
+        self._transition_listener = None
+
+    def stop_transition_watch(self):
+        if self._transition_listener is not None:
+            self._transition_origin.remove_listener("popup", self._transition_listener)
+            self._transition_listener = None
+
+    def start_transition_watch(self):
+        self.stop_transition_watch()
+        self._transition_origin = self.page
+        self._transition_before = set(self.s.context.pages)
+        self._transition_pages = []
+        self._transition_listener = lambda page: self._transition_pages.append(page)
+        self._transition_origin.on("popup", self._transition_listener)
+
+    async def transition_pages(self):
+        # 只跟随本次点击产生且由本任务购物车打开的新窗口，不接管其他任务或手工页。
+        for page in self.s.context.pages:
+            if page not in self._transition_before and page not in self._transition_pages:
+                if await page.opener() is self._transition_origin:
+                    self._transition_pages.append(page)
+        return [page for page in dict.fromkeys([self.page, *self._transition_pages]) if not page.is_closed()]
+
+    async def wait_checkout(self):
+        # 允许购物车脚本稍后导航/打开新窗口；正常导航一旦完成就立即返回。
+        deadline = time.monotonic() + max(2, self.s.cfg.jd["action_timeout_ms"] / 1000)
+        while True:
+            self.s.scheduler.check_stop()
+            pages = await self.transition_pages()
+            ready = [page for page in pages if checkout_url(page.url)]
+            if len(ready) > 1:
+                raise StopOrder("本次购物车点击打开多个结算窗口，停止操作，避免串单")
+            if ready:
+                self.s.page = ready[0]
+                self.s.cart_checkout_reached = True
+                self.stop_transition_watch()
+                self.s.store.event(self.s.task.id, "checkout_page", {"page": self.page_location(),
+                    "new_window": self.page is not self._transition_origin}, update_state=False)
+                LOG.info("[%s] 已确认订单结算页：%s", self.s.task.id, self.page_location())
+                return
+            opened = [page for page in pages if page is not self._transition_origin]
+            if len(opened) == 1:
+                self.s.page = opened[0]
+            if not self.page.is_closed() and self.page.url not in ("", "about:blank"):
+                await self.guard()
+            if time.monotonic() >= deadline:
+                if not self.page.is_closed() and urlparse(self.page.url).hostname == "cart.jd.com" and not opened:
+                    self.s.cart_checkout_started = False
+                    self.stop_transition_watch()
+                    raise Retryable(f"点击去结算后仍停留购物车，保留勾选并重新核对后重试；页面={self.page_location()}")
+                raise Retryable(f"本次结算窗口仍在加载，保留页面等待，不重复点击；页面={self.page_location()}")
+            await asyncio.sleep(.05)
+
     @property
     def expected_selection(self):
         return {"sku": self.s.task.sku, "quantity": self.s.task.quantity}
@@ -202,6 +262,29 @@ class Cart(PageTools):
         self.s.cart_selected_ns = self.s.scheduler.now_ns()
 
     async def checkout(self, refresh=True):
+        if not self.s.cart_checkout_started and self._transition_origin is not None:
+            pages = await self.transition_pages()
+            if any(checkout_url(page.url) or page is not self._transition_origin for page in pages):
+                # 上轮等待结束到重试之间可能刚出现原来的结算窗口，先跟随，不能再点一次。
+                self.s.cart_checkout_started = True
+        if self.s.cart_checkout_started:
+            if self.page.url.startswith("chrome-error:"):
+                self.s.cart_checkout_started = False
+                self.s.cart_checkout_reached = False
+                self.stop_transition_watch()
+                refresh = True
+            elif self.s.cart_checkout_reached and urlparse(self.page.url).hostname == "cart.jd.com":
+                # 网站已退回购物车；之前的点击标志不代表仍在结算，必须重新核对。
+                self.s.cart_checkout_started = False
+                self.s.cart_checkout_reached = False
+                self.stop_transition_watch()
+                refresh = False
+                LOG.info("[%s] 结算页已返回购物车，保留当前页面重新核对后发起结算", self.s.task.id)
+            else:
+                LOG.info("[%s] 已发起购物车结算，等待实际结算窗口，不刷新购物车；页面=%s",
+                    self.s.task.id, self.page_location())
+                await self.wait_checkout()
+                return
         expected = self.expected_selection
         if self.s.cart_selection == expected and "cart.jd.com" in self.page.url:
             try:
@@ -216,10 +299,14 @@ class Cart(PageTools):
             LOG.info("[%s] 勾选成功至发起结算耗时 %.1f ms", self.s.task.id, elapsed)
             self.s.store.event(self.s.task.id, "checkout_start", {"since_selection_ms": round(elapsed, 3)},
                 update_state=False)
+        self.start_transition_watch()
         self.s.cart_checkout_started = True
+        self.s.cart_checkout_reached = False
         try:
             await self.click_transition(button, trigger=True)
+            await self.wait_checkout()
         except PlaywrightError as exc:
             if "net::ERR_" in str(exc):
                 self.s.cart_checkout_started = False
+                self.stop_transition_watch()
             raise

@@ -7,12 +7,12 @@
       "bytes": 372
     },
     "README.md": {
-      "sha256": "4a353c862ea10c2dc3900e539161f769f169aab4860c0818fb08cbef083ba3a9",
-      "bytes": 12066
+      "sha256": "c51bcb532575a713c7b9a173c62ac80b780257fae1850dbfdfcec86eab7cd6f0",
+      "bytes": 13078
     },
     "SHARE_README.md": {
-      "sha256": "40683b78036acf74ee8d8007dee2661db57dcbf010708a4e524a7946394bc43d",
-      "bytes": 11691
+      "sha256": "b8c77a0044e00d59c968210a349383c4937bccca1bbac65e0402af564d456e0a",
+      "bytes": 12706
     },
     "config.example.yaml": {
       "sha256": "6ed55c9deb26fe57f0588cba302560921e8c35df8bbbda15e9baac9b7759036e",
@@ -87,12 +87,12 @@
       "bytes": 4011
     },
     "jd/browser.py": {
-      "sha256": "88bef646ecd4e454c6af500219eec9d7af9a4554410b64a315ae7f5791360322",
-      "bytes": 5492
+      "sha256": "917f5e6cc0c42b264b5ff63cb922af0ce57eab4b4d251d65ea7286f77ad0b7b3",
+      "bytes": 5535
     },
     "jd/cart.py": {
-      "sha256": "ef1b17a7f66aff19e4f647f73649fc10d12a67711a2d4834684915ce4ed17eba",
-      "bytes": 11286
+      "sha256": "300961a3071f3d5046ed3b0f0de8e9d890824711b8a906dec93181d94b9a2ec7",
+      "bytes": 16245
     },
     "jd/cart_scan.py": {
       "sha256": "e1485ff512ca1fdaddfb117af3ce1cb6476f72e4f35e5095322aeda9070a0142",
@@ -103,8 +103,8 @@
       "bytes": 15897
     },
     "jd/common.py": {
-      "sha256": "2158d99b3fc6e8834ce169d574e483eaa3c5c7bc4f6ef2f41d77decb097ec37d",
-      "bytes": 14185
+      "sha256": "d9bbf85a2c57234a5889b0ff87a7d33dcb731c991b4eaf87403c4290a48eac2e",
+      "bytes": 15675
     },
     "jd/dom.py": {
       "sha256": "3b5eb819a5ccb61040c3c332afc52a1ecd0f639ee3b29a80f0d986f7e8828cf6",
@@ -135,8 +135,8 @@
       "bytes": 2629
     },
     "main.py": {
-      "sha256": "36c7c67712843e782be6015fbb080f22bca4863bd139ea13ede2bd1598a91725",
-      "bytes": 37003
+      "sha256": "0cbae561860e24bb0396b2b38ab4a32344fcc5182c7175294bbe036e1e2787ae",
+      "bytes": 36826
     },
     "marketplaces/__init__.py": {
       "sha256": "32f5da2892beb78a9e551569393c56807012cbd3f84d6bcab3714b74020dca26",
@@ -187,8 +187,8 @@
       "bytes": 2570
     },
     "tests/test_browser.py": {
-      "sha256": "4389727c59e8bea94d255a5e30dd564b83dbb022912a0fbc8126b5902d82fa10",
-      "bytes": 105706
+      "sha256": "3dcfb4da48ccee24f8e2a3effb36f561ee43a37471058b21086bec0955a73c86",
+      "bytes": 113434
     },
     "tests/test_browser_connection.py": {
       "sha256": "c55203d6376abfe4835f182897cf2731a2824eab139015e3b5130002bb9aa6a6",

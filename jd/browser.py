@@ -113,6 +113,7 @@ class Session:
         self.cart_preloaded = False
         self.cart_timings = {}
         self.cart_checkout_started = False
+        self.cart_checkout_reached = False
         self.payment_secret = PaymentSecret()
         self.payment_secret_attempted = False
         self.auth_lock = asyncio.Lock()

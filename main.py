@@ -68,11 +68,7 @@ async def purchase_attempt(session, warmed, attempt):
             await asyncio.sleep(.05)
     else:
         try:
-            if session.cart_checkout_started and not session.page.url.startswith("chrome-error://"):
-                LOG.info("[%s] 已发起购物车结算，复用当前页面等待完成，不刷新购物车", session.task.id)
-            else:
-                session.cart_checkout_started = False
-                await session.cart.checkout(refresh=not warmed or attempt > 1)
+            await session.cart.checkout(refresh=not warmed or attempt > 1)
         except Retryable:
             if session.task.source == "cart":
                 raise
@@ -540,6 +536,8 @@ async def execute(cfg, args, payment_secret=None):
                     await notify(cfg.notification["desktop"], LABELS[task.platform] + "任务已停止", f"{task.name}：{str(exc).splitlines()[0][:160]}")
                     return False
                 finally:
+                    if session is not None and task.platform == "jd":
+                        session.cart.stop_transition_watch()
                     if session is not None and isinstance(contexts.get(task.platform), BrowserConnection):
                         contexts[task.platform].release_page(page)
                     if (session is not None and task.recurrence == "daily" and args.command == "run"
