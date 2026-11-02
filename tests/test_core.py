@@ -16,7 +16,7 @@ from core.errors import Cancelled, StopOrder
 from core.retry import RetryBudget
 from core.scheduler import Scheduler
 from core.state_machine import StateStore
-from jd.order import success_result
+from jd.order import submission_feedback, success_result
 from jd.product import stock_state
 from jd.auth import credential_names_valid
 from utils.notifier import toast_script
@@ -29,6 +29,19 @@ def config_data():
 
 
 class CoreTests(unittest.TestCase):
+    def test_submission_feedback_recognizes_stock_without_misreading_backorder(self):
+        for text, expected in (
+            ('抱歉，您本单购买的以下商品或赠品在所选择的地址下暂时无货', 'stock'),
+            ('商品暂时无货', 'stock'), ('库存不足', 'stock'),
+            ('系统繁忙，请稍后再试', 'rejected'),
+            ('验证一下，购物无忧', 'verification'), ('支付密码不正确', 'password'),
+            ('无货订购', None), ('商品无货订购', None),
+            ('订单提交成功 订单号：123456789012', None),
+        ):
+            with self.subTest(text=text):
+                result = submission_feedback(text)
+                self.assertEqual(result['kind'] if result else None, expected)
+
     def test_pc_cookie_variants(self):
         self.assertTrue(credential_names_valid({"thor", "pinId"}))
         self.assertTrue(credential_names_valid({"thor", "unick"}))

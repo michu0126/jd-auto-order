@@ -16,6 +16,20 @@ from jd.password_prompt import dismiss_password_dialog, PASSWORD_TEXT, jd_page
 LOG = logging.getLogger(__name__)
 
 
+def submission_feedback(text):
+    # 只保存已知提示短语，不将收货地址、手机号或整页正文写入日志。
+    for kind, pattern in (
+        ("stock", r"在所选择的地址下暂时无货|(?:商品|赠品)(?:或赠品)?(?:暂时|暂)?无货(?!订购)|库存不足|已被抢光|已抢光"),
+        ("rejected", r"(?:订单)?提交失败|下单失败|系统繁忙|请勿重复提交"),
+        ("verification", r"验证一下[，,]?\s*购物无忧|请完成安全验证"),
+        ("password", r"支付密码(?:错误|不正确|已锁定)|密码输入错误|密码不正确|密码已锁定"),
+    ):
+        match = re.search(pattern, text)
+        if match:
+            return {"kind": kind, "message": match[0]}
+    return None
+
+
 def order_id(text):
     match = re.search(r"(?:订单号|订单编号)\s*[:：]?\s*(\d{6,30})(?!\d)", text)
     return match[1] if match else None
@@ -31,6 +45,34 @@ def success_result(text):
 class Order(PageTools):
     def success(self, text):
         return success_result(text)
+
+    async def capture_feedback(self, started_ns, feedback, found):
+        if feedback:
+            return
+        feedback.update(found, after_submit_ms=round(
+            (time.perf_counter_ns() - started_ns) / 1e6, 3), page=self.page_location())
+        self.s.store.event(self.s.task.id, "submit_feedback", dict(feedback), update_state=False)
+        LOG.warning("[%s] 提交阶段首次提示：%s；距提交尝试 %.1f ms；页面=%s",
+            self.s.task.id, found["message"], feedback["after_submit_ms"], feedback["page"])
+        # 截图有硬截止；文本已先落盘，不让截图失败拖延后续状态判断。
+        try:
+            async with asyncio.timeout(1.5):
+                await self.snapshot("submit-feedback")
+        except TimeoutError:
+            LOG.warning("[%s] 首次提交提示截图超时，文字和观察时间已保存", self.s.task.id)
+
+    async def watch_feedback(self, started_ns, feedback):
+        """提交动作等待期间也读取当前页；首次失败提示先留证据，再查单。"""
+        while True:
+            try:
+                found = submission_feedback(await main_body_text(self.page))
+                if found:
+                    await self.capture_feedback(started_ns, feedback, found)
+                    return
+            except Exception as exc:
+                # 导航会销毁旧文档，继续读实际页面；不把异常中的正文或密码写出。
+                LOG.debug("[%s] 等待提交提示页面：%s", self.s.task.id, type(exc).__name__)
+            await asyncio.sleep(.05)
 
     async def baseline(self):
         original = self.s.page
@@ -158,9 +200,25 @@ class Order(PageTools):
         password_closed = False
         closed_at = None
         success_seen_at = None
+        feedback = {}
+        attempt_started_ns = time.perf_counter_ns()
+        watcher = asyncio.create_task(self.watch_feedback(attempt_started_ns, feedback),
+            name="jd-submit-feedback:" + self.s.task.id)
         try:
             with measure(self.s.task.id, "提交点击与导航"):
-                await self.click_transition(button)
+                click_started_ns = self.s.scheduler.now_ns()
+                completed = False
+                try:
+                    await self.click_transition(button)
+                    completed = True
+                finally:
+                    click_ended_ns = self.s.scheduler.now_ns()
+                    stamp = lambda ns: datetime.fromtimestamp(ns / 1e9, CST).isoformat(timespec="milliseconds")
+                    click = {"started": stamp(click_started_ns), "ended": stamp(click_ended_ns),
+                        "action_completed": completed}
+                    self.s.store.event(self.s.task.id, "submit_click", click, update_state=False)
+                    LOG.info("[%s] 提交动作校准时间：开始=%s 结束=%s 动作完成=%s；不代表订单已受理",
+                        self.s.task.id, click["started"], click["ended"], completed)
             deadline = time.monotonic() + self.s.cfg.jd["result_timeout_seconds"]
             while time.monotonic() < deadline:
                 self.s.scheduler.check_stop()
@@ -181,6 +239,13 @@ class Order(PageTools):
                         return found
                 else:
                     success_seen_at = None
+                if not feedback:
+                    observed = submission_feedback(text)
+                    if observed:
+                        await self.capture_feedback(attempt_started_ns, feedback, observed)
+                if feedback and not found:
+                    error = StopOrder("提交阶段页面提示：" + feedback["message"])
+                    break
                 if closed_at is not None and time.monotonic() - closed_at >= .5:
                     break
                 if re.search(r"提交失败|库存不足|商品无货|系统繁忙", text):
@@ -191,11 +256,28 @@ class Order(PageTools):
             raise
         except Exception as exc:
             error = exc
+        finally:
+            # 截图先于只读查单完成，避免查单数十秒后才记录原页面。
+            if feedback and not watcher.done():
+                try:
+                    async with asyncio.timeout(1.7):
+                        await asyncio.shield(watcher)
+                except TimeoutError:
+                    pass
+            if not watcher.done():
+                watcher.cancel()
+            await asyncio.gather(watcher, return_exceptions=True)
         self.s.store.finish(self.s.key, "unknown", detail="提交后未读到成功页，正在只读查询订单中心")
         found = await self.reconcile(quote, submitted_at)
         if found:
             await self.confirmed(found, quote, pending=True)
             return found
-        self.s.store.finish(self.s.key, "unknown", detail="未能确认订单；不会重发，请人工核实")
+        detail = "未能确认订单；不会重发，请人工核实"
+        if feedback:
+            detail = "提交阶段页面提示：" + feedback["message"] + "；" + detail
+        self.s.store.finish(self.s.key, "unknown", detail=detail)
         await self.snapshot("unknown-order")
-        raise StopOrder("已尝试提交，成功页和订单中心均未能确认；已停止重试，请核实京东订单中心") from error
+        message = "已尝试提交，成功页和订单中心均未能确认；已停止重试，请核实京东订单中心"
+        if feedback:
+            message = "提交阶段页面提示“" + feedback["message"] + "”；" + message
+        raise StopOrder(message) from error

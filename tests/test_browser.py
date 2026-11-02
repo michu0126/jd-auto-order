@@ -1914,6 +1914,94 @@ class BrowserTests(unittest.IsolatedAsyncioTestCase):
             await run_one(self.session, asyncio.Lock(), now=True)
         self.assertEqual(self.submit_hits, 1)
 
+    async def test_transient_stock_feedback_is_saved_during_click_before_order_query(self):
+        self.checkout_html = CHECKOUT.replace("location.href='https://trade.jd.com/success'", """
+            window.submitClicks=(window.submitClicks||0)+1;
+            const feedback=document.createElement('div'); feedback.id='stock-feedback';
+            feedback.textContent='抱歉，您本单购买的以下商品或赠品在所选择的地址下暂时无货';
+            document.body.append(feedback);""")
+        await self.checkout()
+        captured = asyncio.Event()
+        trace = []
+        original = self.session.order.click_transition
+        async def slow_transition(button):
+            await original(button)
+            await asyncio.wait_for(captured.wait(), 2)
+            await self.page.locator('#stock-feedback').evaluate('el=>el.remove()')
+            trace.append('click-returned')
+        async def snapshot(reason):
+            if reason == 'submit-feedback':
+                row = self.store.db.execute("SELECT detail FROM events WHERE state='submit_feedback'").fetchone()
+                self.assertIn('在所选择的地址下暂时无货', json.loads(row[0])['message'])
+                self.assertEqual(await self.page.locator('#stock-feedback').count(), 1)
+                trace.append('first-feedback-snapshot')
+                captured.set()
+        async def query(*args):
+            self.assertTrue(captured.is_set())
+            self.assertEqual(await self.page.locator('#stock-feedback').count(), 0)
+            trace.append('query-order')
+            return None
+        with patch.object(self.session.order, 'click_transition', side_effect=slow_transition), \
+                patch.object(self.session.order, 'snapshot', side_effect=snapshot), \
+                patch.object(self.session.order, 'reconcile', side_effect=query):
+            with self.assertRaisesRegex(StopOrder, '提交阶段页面提示.*暂时无货'):
+                await self.session.order.submit()
+        self.assertEqual(trace, ['first-feedback-snapshot', 'click-returned', 'query-order'])
+        self.assertEqual(self.store.db.execute("SELECT count(*) FROM events WHERE state='submit_feedback'").fetchone()[0], 1)
+        click = json.loads(self.store.db.execute("SELECT detail FROM events WHERE state='submit_click'").fetchone()[0])
+        self.assertTrue(click['action_completed'])
+        self.assertLessEqual(click['started'], click['ended'])
+        self.assertEqual(self.store.get(self.session.key)[0], 'unknown')
+        self.assertIn('暂时无货', self.store.get(self.session.key)[2])
+        with self.assertRaisesRegex(StopOrder, '已有提交记录'):
+            await self.session.order.submit()
+        self.assertEqual(await self.page.evaluate('window.submitClicks'), 1)
+
+    async def test_submit_feedback_screenshot_timeout_does_not_block_order_query(self):
+        self.checkout_html = CHECKOUT.replace("location.href='https://trade.jd.com/success'",
+            "document.body.insertAdjacentHTML('beforeend','<div>库存不足</div>')")
+        await self.checkout()
+        cancelled = asyncio.Event()
+        async def snapshot(reason):
+            if reason == 'submit-feedback':
+                try:
+                    await asyncio.Event().wait()
+                finally:
+                    cancelled.set()
+        query = AsyncMock(return_value=None)
+        with patch.object(self.session.order, 'snapshot', side_effect=snapshot), \
+                patch.object(self.session.order, 'reconcile', new=query):
+            async with asyncio.timeout(5):
+                with self.assertRaisesRegex(StopOrder, '库存不足'):
+                    await self.session.order.submit()
+        self.assertTrue(cancelled.is_set())
+        query.assert_awaited_once()
+        self.assertEqual(self.store.get(self.session.key)[0], 'unknown')
+
+    async def test_cancelled_submit_cleans_up_feedback_watcher_and_keeps_unknown(self):
+        await self.checkout()
+        entered = asyncio.Event()
+        async def blocked_click(button):
+            entered.set()
+            await asyncio.Event().wait()
+        query = AsyncMock()
+        with patch.object(self.session.order, 'click_transition', side_effect=blocked_click), \
+                patch.object(self.session.order, 'reconcile', new=query):
+            job = asyncio.create_task(self.session.order.submit())
+            try:
+                await asyncio.wait_for(entered.wait(), 3)
+                job.cancel()
+                with self.assertRaises(asyncio.CancelledError):
+                    await job
+            finally:
+                if not job.done():
+                    job.cancel()
+                await asyncio.gather(job, return_exceptions=True)
+        self.assertFalse(any(task.get_name() == 'jd-submit-feedback:' + self.session.task.id
+                             for task in asyncio.all_tasks() if not task.done()))
+        self.assertEqual(self.store.get(self.session.key)[0], 'unknown')
+        query.assert_not_awaited()
+
     async def test_unknown_result_reconciles_matching_order(self):
         await self.reconcile_matching_order("199.00")
 

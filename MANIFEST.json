@@ -7,12 +7,12 @@
       "bytes": 372
     },
     "README.md": {
-      "sha256": "d11bae2fb1bfd6b6006062ab32fdfe271112915a819ac7ba88073289ee44bf96",
-      "bytes": 13278
+      "sha256": "bb243f2a69b586718c68992938ff62ec423e4de5d72823cbbecd9a5a8a5833af",
+      "bytes": 13850
     },
     "SHARE_README.md": {
-      "sha256": "39392bf86642dfa2b76cae44c0776f4377002043b7820df7b16726855c0a4558",
-      "bytes": 12892
+      "sha256": "902381750d33a0a8220c2a496f41e8ef2a81c95d060227e2ef6567b44b8aec63",
+      "bytes": 13464
     },
     "config.example.yaml": {
       "sha256": "6ed55c9deb26fe57f0588cba302560921e8c35df8bbbda15e9baac9b7759036e",
@@ -119,8 +119,8 @@
       "bytes": 8503
     },
     "jd/order.py": {
-      "sha256": "6e18451434df223a4017cfb7b38c3dacba042c31f80d25607112a2b04d2fb156",
-      "bytes": 10545
+      "sha256": "c5176a26607bb12bcf5d4240038362560bfcfd5ab8f3f4318f3acc6295f3ab41",
+      "bytes": 15056
     },
     "jd/password_prompt.py": {
       "sha256": "2b93f80b02db3789024f0cbbe4c4d231728452dc65899a5cbbef61072ae6f69f",
@@ -187,8 +187,8 @@
       "bytes": 2570
     },
     "tests/test_browser.py": {
-      "sha256": "bba880d743502cbb69dd3d6e7bafab59cb68b582199df0ff8a1e6da4ce2bd58c",
-      "bytes": 117569
+      "sha256": "0bdfc88ea14a92c98674fa4dd4f0172dc5292b14a7218a8315d3c17fd939c979",
+      "bytes": 122698
     },
     "tests/test_browser_connection.py": {
       "sha256": "c55203d6376abfe4835f182897cf2731a2824eab139015e3b5130002bb9aa6a6",
@@ -207,8 +207,8 @@
       "bytes": 8933
     },
     "tests/test_core.py": {
-      "sha256": "29ead62332c52cac2f72bab2f4c37e552cdf9695d297defec58f65aaf294e17f",
-      "bytes": 11205
+      "sha256": "c8f11472be673e8ed6d64d471602ff26aaea2890a17e1e7a9ac9c0ef2be3aaff",
+      "bytes": 12017
     },
     "tests/test_embedded_checkout.py": {
       "sha256": "815a66755c2b2c495a9330bef48a364d05ec6027801884bd7abd6e2306438161",
