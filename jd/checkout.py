@@ -230,7 +230,6 @@ class Checkout(PageTools):
         await self.guard()
         button = await self.find("submit")
         await self.find("checkout_goods")
-        await self.verify_payment()
         goods = self.page.locator(self.s.selectors["checkout_goods"])
         quantities = await self.validate_goods(goods)
         if not quantities or sum(quantities) != self.s.task.quantity:
@@ -261,6 +260,7 @@ class Checkout(PageTools):
             freight if freight is not None else "未单列（以最终应付为准）", discount, total)
         quote = Quote(total, subtotal, freight, discount)
         await self.assert_submission_allowed(button)
+        LOG.info("[%s] 保留京东结算页默认支付方式，不切换通道、银行卡或分期", self.s.task.id)
         self.s.store.event(self.s.task.id, "validated", {"sku": self.s.task.sku, "quantity": sum(quantities),
             "subtotal": str(subtotal) if subtotal is not None else None,
             "freight": str(freight) if freight is not None else None,

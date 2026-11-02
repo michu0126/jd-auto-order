@@ -1,18 +1,18 @@
 {
   "format": 1,
-  "kind": "clean-source-github-repository",
+  "kind": "clean-source-sharing-package",
   "files": {
     ".gitignore": {
       "sha256": "00d94891c7ac423503bf0f1f4f64cf5343e530a5759d6a33cfb30738522d4681",
       "bytes": 372
     },
     "README.md": {
-      "sha256": "c51bcb532575a713c7b9a173c62ac80b780257fae1850dbfdfcec86eab7cd6f0",
-      "bytes": 13078
+      "sha256": "d11bae2fb1bfd6b6006062ab32fdfe271112915a819ac7ba88073289ee44bf96",
+      "bytes": 13278
     },
     "SHARE_README.md": {
-      "sha256": "b8c77a0044e00d59c968210a349383c4937bccca1bbac65e0402af564d456e0a",
-      "bytes": 12706
+      "sha256": "39392bf86642dfa2b76cae44c0776f4377002043b7820df7b16726855c0a4558",
+      "bytes": 12892
     },
     "config.example.yaml": {
       "sha256": "6ed55c9deb26fe57f0588cba302560921e8c35df8bbbda15e9baac9b7759036e",
@@ -91,16 +91,16 @@
       "bytes": 5535
     },
     "jd/cart.py": {
-      "sha256": "300961a3071f3d5046ed3b0f0de8e9d890824711b8a906dec93181d94b9a2ec7",
-      "bytes": 16245
+      "sha256": "5095d4616168bb746ec6d97c5d5ac1c121365855c781a3d7edcee14a1c238314",
+      "bytes": 18524
     },
     "jd/cart_scan.py": {
       "sha256": "e1485ff512ca1fdaddfb117af3ce1cb6476f72e4f35e5095322aeda9070a0142",
       "bytes": 6915
     },
     "jd/checkout.py": {
-      "sha256": "d2e6670a6b377f85fd5b930b42073d69fb1fbf795260b6c1b9df1754a5970f76",
-      "bytes": 15897
+      "sha256": "88fe30ddd2f0ce2db75546023741d4c4f3dc0dc452e8a6e48752602a8d1bcabe",
+      "bytes": 15981
     },
     "jd/common.py": {
       "sha256": "d9bbf85a2c57234a5889b0ff87a7d33dcb731c991b4eaf87403c4290a48eac2e",
@@ -119,8 +119,8 @@
       "bytes": 8503
     },
     "jd/order.py": {
-      "sha256": "426ce5e1f4c41f42baa68a0ba7319b08e00b6eb77ec60837bd8241c4cb872a69",
-      "bytes": 10592
+      "sha256": "6e18451434df223a4017cfb7b38c3dacba042c31f80d25607112a2b04d2fb156",
+      "bytes": 10545
     },
     "jd/password_prompt.py": {
       "sha256": "2b93f80b02db3789024f0cbbe4c4d231728452dc65899a5cbbef61072ae6f69f",
@@ -135,8 +135,8 @@
       "bytes": 2629
     },
     "main.py": {
-      "sha256": "0cbae561860e24bb0396b2b38ab4a32344fcc5182c7175294bbe036e1e2787ae",
-      "bytes": 36826
+      "sha256": "037330ee0d9364ff49e7400d5df96b057dab68f819cd44c5660d682eee71f419",
+      "bytes": 36805
     },
     "marketplaces/__init__.py": {
       "sha256": "32f5da2892beb78a9e551569393c56807012cbd3f84d6bcab3714b74020dca26",
@@ -187,8 +187,8 @@
       "bytes": 2570
     },
     "tests/test_browser.py": {
-      "sha256": "3dcfb4da48ccee24f8e2a3effb36f561ee43a37471058b21086bec0955a73c86",
-      "bytes": 113434
+      "sha256": "bba880d743502cbb69dd3d6e7bafab59cb68b582199df0ff8a1e6da4ce2bd58c",
+      "bytes": 117569
     },
     "tests/test_browser_connection.py": {
       "sha256": "c55203d6376abfe4835f182897cf2731a2824eab139015e3b5130002bb9aa6a6",
@@ -257,10 +257,6 @@
     "tools/package_source.py": {
       "sha256": "9a1d4fd71c0e4e50a69d40f0f6849c181e526770aa82d8198a467e2f0f478afb",
       "bytes": 4160
-    },
-    "tools/verify_share_package.py": {
-      "sha256": "d9390856a94bf7fc0737c4f635c2ae5101f07d4b66f33c8398a6473058f69266",
-      "bytes": 9153
     },
     "ui/app.js": {
       "sha256": "0ce343c946973c0bb8da145f8f7927aa585837e943235f8e3560f620fcd1c813",

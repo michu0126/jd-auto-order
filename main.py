@@ -77,9 +77,7 @@ async def purchase_attempt(session, warmed, attempt):
             await session.product.buy()
             await session.cart.checkout()
     await session.tools.guard()
-    await session.tools.find("submit")
     await session.tools.find("checkout_goods")
-    await session.checkout.select_payment()
     await session.checkout.discounts()
 
 
@@ -538,6 +536,7 @@ async def execute(cfg, args, payment_secret=None):
                 finally:
                     if session is not None and task.platform == "jd":
                         session.cart.stop_transition_watch()
+                        session.cart.clear_selection_handoff()
                     if session is not None and isinstance(contexts.get(task.platform), BrowserConnection):
                         contexts[task.platform].release_page(page)
                     if (session is not None and task.recurrence == "daily" and args.command == "run"

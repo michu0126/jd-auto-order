@@ -136,6 +136,7 @@ class BrowserTests(unittest.IsolatedAsyncioTestCase):
 
     async def asyncTearDown(self):
         self.session.cart.stop_transition_watch()
+        self.session.cart.clear_selection_handoff()
         self.store.close()
         self.scheduler.close()
         await self.context.close()
@@ -980,11 +981,75 @@ class BrowserTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_checkout_reuses_verified_selection_without_selecting_or_refreshing_again(self):
         await self.session.cart.select()
-        with patch.object(self.session.cart, "select", new=AsyncMock(side_effect=AssertionError("重复选品"))):
+        with patch.object(self.session.cart, "select", new=AsyncMock(side_effect=AssertionError("重复选品"))), \
+                patch.object(self.session.cart, "verify", new=AsyncMock(side_effect=AssertionError("重复核对"))):
             await self.session.cart.checkout(refresh=True)
         self.assertEqual(len(self.cart_load_times), 1)
         self.assertIn("getOrderInfo.action", self.page.url)
         self.assertEqual(self.submit_hits, 0)
+
+    async def test_cart_correct_quantity_does_not_relocate_or_edit_quantity(self):
+        self.session.task.quantity = 1
+        find = self.session.cart.find
+        async def forbid_quantity_read(key, **kwargs):
+            if key == 'cart_quantity':
+                raise AssertionError('已知正确数量仍重复定位')
+            return await find(key, **kwargs)
+        with patch.object(self.session.cart, 'find', side_effect=forbid_quantity_read):
+            await self.session.cart.select()
+        self.assertEqual(self.session.cart_selection, {'sku': SKU, 'quantity': 1})
+        self.assertEqual(await self.page.locator('.itxt').first.input_value(), '1')
+
+    async def test_cart_navigation_invalidates_selection_handoff(self):
+        await self.session.cart.select()
+        self.cart_html = CART.replace('type="checkbox"', 'type="checkbox" disabled', 1)
+        await self.page.goto('https://cart.jd.com/cart_index')
+        with self.assertRaisesRegex(Retryable, '暂不可勾选'):
+            await self.session.cart.checkout(refresh=False)
+        self.assertFalse(self.session.cart_checkout_started)
+        self.assertEqual(self.submit_hits, 0)
+
+    async def test_cart_waits_for_checkout_enable_without_refresh_or_reselection(self):
+        self.session.target_ns = self.scheduler.now_ns()
+        self.cart_html = CART.replace(
+            '<a class="submit-btn" href="https://trade.jd.com/shopping/order/getOrderInfo.action">去结算</a>',
+            '''<button class="submit-btn" disabled aria-disabled="true"
+            onclick="location.href='https://trade.jd.com/shopping/order/getOrderInfo.action'">去结算</button>''')
+        await self.session.cart.select()
+        await self.page.evaluate('''() => setTimeout(() => {
+            const button = document.querySelector('.submit-btn');
+            button.disabled = false; button.setAttribute('aria-disabled', 'false');
+        }, 150)''')
+        with patch.object(self.session.cart, 'select', new=AsyncMock(side_effect=AssertionError('重复选品'))), \
+                patch.object(self.session.cart, 'verify', new=AsyncMock(side_effect=AssertionError('重复核对'))):
+            await self.session.cart.checkout()
+        self.assertIn('getOrderInfo.action', self.session.page.url)
+        self.assertEqual(len(self.cart_load_times), 1)
+        self.assertEqual(self.store.db.execute("SELECT count(*) FROM events WHERE state='trigger'").fetchone()[0], 1)
+        self.assertEqual(self.submit_hits, 0)
+
+    async def test_disabled_cart_checkout_preserves_selection_and_retries_current_page(self):
+        self.session.target_ns = self.scheduler.now_ns()
+        self.cart_html = CART.replace('class="submit-btn"', 'class="submit-btn" aria-disabled="true"')
+        await self.session.cart.select()
+        with self.assertRaisesRegex(Retryable, '结算按钮暂不可用'):
+            await self.session.cart.checkout()
+        self.assertTrue(self.session.cart_pending)
+        self.assertFalse(self.session.cart_checkout_started)
+        self.assertEqual(self.store.db.execute("SELECT count(*) FROM events WHERE state='trigger'").fetchone()[0], 0)
+        await self.page.locator('.submit-btn').evaluate("el=>el.setAttribute('aria-disabled','false')")
+        await self.session.cart.checkout(refresh=True)
+        self.assertEqual(len(self.cart_load_times), 1)
+        self.assertIn('getOrderInfo.action', self.session.page.url)
+
+    async def test_cart_handoff_keeps_final_checkout_identity_check(self):
+        self.checkout_html = CHECKOUT.replace('111111111', '999999999')
+        await self.session.cart.select()
+        await self.session.cart.checkout()
+        with self.assertRaisesRegex(StopOrder, '结算 SKU 包含其他商品'):
+            await self.session.order.submit()
+        self.assertEqual(self.submit_hits, 0)
+        self.assertIsNone(self.store.get(self.session.key))
 
     async def test_pending_target_sync_retries_on_current_page_without_reload(self):
         self.session.task.quantity = 1

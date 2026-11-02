@@ -20,6 +20,31 @@ class Cart(PageTools):
         self._transition_before = set()
         self._transition_pages = []
         self._transition_listener = None
+        self._selection_handoff = None
+        self._selection_listener = None
+
+    def clear_selection_handoff(self):
+        if self._selection_listener is not None:
+            self._selection_handoff[0].remove_listener("framenavigated", self._selection_listener)
+        self._selection_handoff = None
+        self._selection_listener = None
+
+    def remember_selection(self):
+        self.clear_selection_handoff()
+        page = self.page
+        self._selection_handoff = (page, self.expected_selection, asyncio.current_task())
+        def navigated(frame):
+            if frame is page.main_frame:
+                self.clear_selection_handoff()
+        self._selection_listener = navigated
+        page.on("framenavigated", navigated)
+
+    def take_selection_handoff(self):
+        proof = self._selection_handoff
+        ready = (proof is not None and proof[0] is self.page and
+                 proof[1] == self.expected_selection and proof[2] is asyncio.current_task())
+        self.clear_selection_handoff()
+        return ready
 
     def stop_transition_watch(self):
         if self._transition_listener is not None:
@@ -113,6 +138,7 @@ class Cart(PageTools):
 
     async def preload(self, refresh=True):
         """只加载购物车，不要求目标已开售，也不改变勾选和数量。"""
+        self.clear_selection_handoff()
         self.s.cart_selection = None
         self.s.cart_selected_ns = None
         self.s.cart_pending = False
@@ -182,12 +208,14 @@ class Cart(PageTools):
         return target
 
     def pending(self, reason):
+        self.clear_selection_handoff()
         self.s.cart_selection = None
         self.s.cart_pending = True
         LOG.info("[%s] %s；保留当前购物车页面，不立即刷新", self.s.task.id, reason)
         return Retryable(reason)
 
     async def verify(self):
+        self.clear_selection_handoff()
         state = await self.snapshot()
         target = self.target_row(state)
         selected = [row["ids"] for row in state if row["checked"]]
@@ -201,6 +229,7 @@ class Cart(PageTools):
             raise self.pending("购物车更新后数量与任务不符，保持当前页面重新核对")
         self.s.cart_pending = False
         self.s.cart_selection = {"sku": self.s.task.sku, "quantity": self.s.task.quantity}
+        self.remember_selection()
 
     async def set_checked(self, state, expected):
         timeout = self.action_timeout
@@ -224,6 +253,7 @@ class Cart(PageTools):
             raise self.pending("购物车勾选控件正在更新，保留页面稍后核对") from exc
 
     async def select(self, refresh=True):
+        self.clear_selection_handoff()
         self.s.cart_timings = {}
         self.s.cart_selection = None
         self.s.cart_selected_ns = None
@@ -239,27 +269,44 @@ class Cart(PageTools):
         # 已开始选择同步后，即使阶段计时取消等待，也应在当前页核对。
         self.s.cart_pending = True
         # Cancel other items first. Selecting the target early can race their server updates.
+        changed = False
         for row in state:
             if row["index"] != target["index"] and row["checked"]:
                 async with self.step("uncheck_other"):
                     await self.set_checked(row, False)
-        state = await self.snapshot()
-        target = self.target_row(state)
-        row = self.page.locator(self.s.selectors["cart_row"]).nth(target["index"])
-        async with self.step("quantity"):
-            quantity = await self.find("cart_quantity", scope=row, timeout=self.action_timeout)
-            if await quantity.input_value(timeout=self.action_timeout) != str(self.s.task.quantity):
+                changed = True
+        if changed:
+            state = await self.snapshot()
+            target = self.target_row(state)
+        if target["quantity"] != str(self.s.task.quantity):
+            row = self.page.locator(self.s.selectors["cart_row"]).nth(target["index"])
+            async with self.step("quantity"):
+                quantity = await self.find("cart_quantity", scope=row, timeout=self.action_timeout)
                 await quantity.fill(str(self.s.task.quantity), timeout=self.action_timeout)
                 await quantity.press("Tab", timeout=self.action_timeout)
-        state = await self.snapshot()
-        target = self.target_row(state)
+            state = await self.snapshot()
+            target = self.target_row(state)
         if any(item["checked"] and item["index"] != target["index"] for item in state):
             raise StopOrder("购物车最终勾选项不等于目标商品，停止结算")
         async with self.step("target_checkbox"):
-            await self.set_checked(target, True)
+            if not target["checked"]:
+                await self.set_checked(target, True)
         async with self.step("verify"):
             await self.verify()
         self.s.cart_selected_ns = self.s.scheduler.now_ns()
+
+    async def checkout_button(self):
+        deadline = time.monotonic() + self.s.cfg.jd["action_timeout_ms"] / 1000
+        while True:
+            self.s.scheduler.check_stop()
+            button = await self.find("checkout", required=False)
+            if (button is not None and await button.is_enabled() and
+                    await button.get_attribute("aria-disabled") != "true"):
+                return button
+            if time.monotonic() >= deadline:
+                raise self.pending("购物车结算按钮暂不可用，保留勾选等待，不刷新")
+            await self.guard()
+            await asyncio.sleep(.05)
 
     async def checkout(self, refresh=True):
         if not self.s.cart_checkout_started and self._transition_origin is not None:
@@ -269,11 +316,13 @@ class Cart(PageTools):
                 self.s.cart_checkout_started = True
         if self.s.cart_checkout_started:
             if self.page.url.startswith("chrome-error:"):
+                self.clear_selection_handoff()
                 self.s.cart_checkout_started = False
                 self.s.cart_checkout_reached = False
                 self.stop_transition_watch()
                 refresh = True
             elif self.s.cart_checkout_reached and urlparse(self.page.url).hostname == "cart.jd.com":
+                self.clear_selection_handoff()
                 # 网站已退回购物车；之前的点击标志不代表仍在结算，必须重新核对。
                 self.s.cart_checkout_started = False
                 self.s.cart_checkout_reached = False
@@ -287,13 +336,16 @@ class Cart(PageTools):
                 return
         expected = self.expected_selection
         if self.s.cart_selection == expected and "cart.jd.com" in self.page.url:
-            try:
-                await self.verify()
-            except Retryable:
-                await self.select(refresh=False)
+            if not self.take_selection_handoff():
+                try:
+                    await self.verify()
+                except Retryable:
+                    await self.select(refresh=False)
         else:
             await self.select(refresh=refresh)
-        button = await self.find("checkout")
+        # 同一任务刚完成的选择只交接一次；错误恢复和页面导航会使交接失效。
+        self.clear_selection_handoff()
+        button = await self.checkout_button()
         if self.s.cart_selected_ns is not None:
             elapsed = (self.s.scheduler.now_ns() - self.s.cart_selected_ns) / 1e6
             LOG.info("[%s] 勾选成功至发起结算耗时 %.1f ms", self.s.task.id, elapsed)

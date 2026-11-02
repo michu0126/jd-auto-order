@@ -141,7 +141,6 @@ class Order(PageTools):
         if not await button.is_enabled() or await button.get_attribute("aria-disabled") == "true":
             from core.errors import Retryable
             raise Retryable("提交订单按钮暂不可用")
-        await self.s.checkout.verify_payment()
         await self.s.checkout.assert_submission_allowed(button, final=True)
         self.s.scheduler.check_stop()
         if (self.s.target_ns is not None and
