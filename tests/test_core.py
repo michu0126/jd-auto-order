@@ -29,6 +29,31 @@ def config_data():
 
 
 class CoreTests(unittest.TestCase):
+    def test_auto_payment_requires_jd_auto_submission_and_boolean_flag(self):
+        for patch in ({'auto_pay': 'yes'}, {'auto_pay': True, 'auto_submit': False}):
+            data = config_data()
+            data['purchase'].update(patch)
+            with self.assertRaises(StopOrder):
+                Config.parse(ROOT / 'config.yaml', data)
+        data = config_data()
+        data['purchase']['auto_pay'] = True
+        self.assertTrue(Config.parse(ROOT / 'config.yaml', data).tasks[0].auto_pay)
+
+    def test_payment_intent_survives_restart_and_blocks_second_claim(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / 'state.sqlite3'
+            first = StateStore(path)
+            first.claim_payment('same-task', 'task', '199.00', '123456789012')
+            first.finish_payment('same-task', 'unknown', '123456789012', '等待核实')
+            first.close()
+            second = StateStore(path)
+            try:
+                with self.assertRaises(StopOrder):
+                    second.claim_payment('same-task', 'task', '199.00', '123456789012')
+                self.assertEqual(second.payment('same-task')[0], 'unknown')
+            finally:
+                second.close()
+
     def test_submission_feedback_recognizes_stock_without_misreading_backorder(self):
         for text, expected in (
             ('抱歉，您本单购买的以下商品或赠品在所选择的地址下暂时无货', 'stock'),

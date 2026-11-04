@@ -123,3 +123,5 @@ class Session:
         self.cart = Cart(self)
         self.checkout = Checkout(self)
         self.order = Order(self)
+        from jd.payment import AutoPayment
+        self.auto_payment = AutoPayment(self)

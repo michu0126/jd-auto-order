@@ -38,6 +38,7 @@ def main():
         template = archive.read("jd-auto-order/config.example.yaml")
         assert archive.read("jd-auto-order/config.yaml") == template
         assert yaml.safe_load(template)["tasks"] == []
+        assert yaml.safe_load(template).get('purchase', {}).get('auto_pay', False) is False
         assert yaml.safe_load(template).get("purchase", {}).get("payment_method", "online") == "online"
         pref = yaml.safe_load(template).get("jd", {}).get("payment_preference", {})
         assert pref.get("channel", "default") == "default"
@@ -140,6 +141,12 @@ def main():
     rejection = subprocess.run([python, str(project / "tools/package_source.py"), "--output", str(refused)],
         cwd=project, env=env, capture_output=True, timeout=20)
     assert rejection.returncode != 0 and not refused.exists()
+    automatic_template = yaml.safe_load(template)
+    automatic_template.setdefault('purchase', {})['auto_pay'] = True
+    (project / 'config.example.yaml').write_text(yaml.safe_dump(automatic_template), encoding='utf-8')
+    rejection = subprocess.run([python, str(project / 'tools/package_source.py'), '--output', str(refused)],
+        cwd=project, env=env, capture_output=True, timeout=20)
+    assert rejection.returncode != 0 and not refused.exists()
     summary = {"archive": str(target), "files": len(entries), "bytes": target.stat().st_size,
         "sha256": hashlib.sha256(target.read_bytes()).hexdigest(), "manifest_verified": True,
         "empty_config_verified": True, "isolated_startup_verified": True, "compiled": True,
@@ -148,6 +155,7 @@ def main():
         "generic_payment_defaults_verified": True, "personal_payment_template_rejected": True,
         "online_only_template_and_ui_verified": True,
         "legacy_payment_config_uses_page_default_verified": True,
+        "automatic_payment_not_inherited_verified": True,
         "report_directory": str(stage)}
     (stage / "verification.json").write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
     print(json.dumps(summary, ensure_ascii=False))

@@ -223,6 +223,8 @@ class EmbeddedOrder(Order):
         return self.payment_guard.accepted
 
     async def submit(self):
+        if self.s.task.auto_pay:
+            raise StopOrder('商品页内嵌结算的自动付款尚需真实收银台适配；请使用购物车或普通结算页，或关闭本任务自动付款')
         if getattr(self.s, 'parallel_detail_count', 1) > 1:
             raise StopOrder('同账号多个详情页的轻量结算已观察到串商品；停止本路最终提交，不能承诺独立并行')
         self.payment_guard = OrderOnlyGuard(self.s)

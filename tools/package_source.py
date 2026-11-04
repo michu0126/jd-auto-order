@@ -32,6 +32,8 @@ def public_payload(root):
         raise ValueError("config.example.yaml 必须为空任务模板，不能包含个人商品或地址")
     if example.get("purchase", {}).get("payment_method", "online") != "online":
         raise ValueError("分享模板只支持在线支付")
+    if example.get('purchase', {}).get('auto_pay', False) is not False:
+        raise ValueError('分享模板必须关闭自动付款，由接收者为自己的任务启用')
     preference = example.get("jd", {}).get("payment_preference", {})
     if (not isinstance(preference, dict) or preference.get("channel", "default") != "default"
             or any(preference.get(key) for key in ("bank_name", "card_type", "installment", "card_last4"))

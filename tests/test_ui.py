@@ -64,6 +64,24 @@ class CartTaskUiTests(unittest.IsolatedAsyncioTestCase):
     async def config(self):
         return await (await self.page.request.get(self.base + "/api/config")).json()
 
+    async def test_auto_pay_checkbox_saves_and_restores_without_storing_password(self):
+        await self.page.locator('.product button').first.click()
+        self.assertFalse(await self.page.locator('#auto-pay').is_checked())
+        await self.page.locator('#auto-submit').uncheck()
+        await self.page.locator('#auto-pay').check()
+        self.assertTrue(await self.page.locator('#auto-submit').is_checked())
+        await self.page.locator('#save-task').click()
+        await self.page.wait_for_function("document.querySelectorAll('#configured-tasks .task-card').length===1")
+        data = await self.config()
+        self.assertTrue(data['tasks'][0]['auto_pay'])
+        self.assertTrue(data['tasks'][0]['auto_submit'])
+        await self.page.get_by_role('button', name='编辑', exact=True).click()
+        self.assertTrue(await self.page.locator('#auto-pay').is_checked())
+        await self.page.locator('#auto-submit').uncheck()
+        self.assertFalse(await self.page.locator('#auto-pay').is_checked())
+        self.assertNotIn('payment_password', data['yaml'])
+        self.assertEqual(self.errors, [])
+
     async def test_scan_error_distinguishes_last_success_and_new_failure_time(self):
         data_dir = self.path.parent / 'data'
         failed = catalog_read(data_dir) | {'status': 'error', 'complete': False,

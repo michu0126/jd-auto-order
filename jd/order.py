@@ -6,12 +6,14 @@ from datetime import datetime
 from urllib.parse import urlparse
 
 from core.config import CST, money, start_time
-from core.errors import StopOrder
+from core.errors import StopOrder, SubmissionRejected
 from jd.common import PageTools, quantity_text, sku_ids
-from jd.dom import main_body_text
+from jd.dom import main_body_text, result_body_text
 from utils.logger import measure
 from utils.notifier import notify
 from jd.password_prompt import dismiss_password_dialog, PASSWORD_TEXT, jd_page
+from jd.submission_prompt import dismiss_submission_prompt
+from jd.submit_button import checkout_url
 
 LOG = logging.getLogger(__name__)
 
@@ -19,6 +21,7 @@ LOG = logging.getLogger(__name__)
 def submission_feedback(text):
     # 只保存已知提示短语，不将收货地址、手机号或整页正文写入日志。
     for kind, pattern in (
+        ("rate_limit", r"(?:您)?多次提交过快|提交过快|操作过于频繁|操作频繁|请求过于频繁|提交频繁"),
         ("stock", r"在所选择的地址下暂时无货|(?:商品|赠品)(?:或赠品)?(?:暂时|暂)?无货(?!订购)|库存不足|已被抢光|已抢光"),
         ("rejected", r"(?:订单)?提交失败|下单失败|系统繁忙|请勿重复提交"),
         ("verification", r"验证一下[，,]?\s*购物无忧|请完成安全验证"),
@@ -26,7 +29,11 @@ def submission_feedback(text):
     ):
         match = re.search(pattern, text)
         if match:
-            return {"kind": kind, "message": match[0]}
+            result = {"kind": kind, "message": match[0]}
+            delay = re.search(r"(\d{1,3})\s*秒后(?:重试|再试)", text)
+            if kind == "rate_limit" and delay:
+                result['retry_after_seconds'] = int(delay[1])
+            return result
     return None
 
 
@@ -37,7 +44,7 @@ def order_id(text):
 
 def success_result(text):
     found = set(re.findall(r"(?<!历史)(?:订单号|订单编号)\s*[:：]?\s*(\d{6,30})(?!\d)", text))
-    if len(found) == 1 and re.search(r"订单提交成功|订单已提交|下单成功|收银台|支付剩余时间|请.{0,8}付款|待付款|待支付|等待付款", text):
+    if len(found) == 1 and re.search(r"订单提交成功|订单已提交|下单成功|收银台|支付剩余时间|请.{0,8}付款|待付款|待支付|等待付款|支付成功|付款成功", text):
         return next(iter(found))
     return None
 
@@ -54,6 +61,17 @@ class Order(PageTools):
         self.s.store.event(self.s.task.id, "submit_feedback", dict(feedback), update_state=False)
         LOG.warning("[%s] 提交阶段首次提示：%s；距提交尝试 %.1f ms；页面=%s",
             self.s.task.id, found["message"], feedback["after_submit_ms"], feedback["page"])
+        if found['kind'] in ('rate_limit', 'stock', 'rejected'):
+            try:
+                feedback['closed'] = await dismiss_submission_prompt(self.page, found['message'], self.activate,
+                    timeout=min(700, self.s.cfg.jd['action_timeout_ms']))
+            except Exception:
+                feedback['closed'] = False
+            if feedback['closed']:
+                self.s.store.event(self.s.task.id, 'submission_prompt_closed',
+                    {'kind': found['kind'], 'message': found['message']}, update_state=False)
+                LOG.info('[%s] 已关闭已识别提示：%s，未刷新页面', self.s.task.id, found['message'])
+                return
         # 截图有硬截止；文本已先落盘，不让截图失败拖延后续状态判断。
         try:
             async with asyncio.timeout(1.5):
@@ -139,11 +157,13 @@ class Order(PageTools):
         detail = "待付款订单已核实，未继续付款" if pending else "已读取成功页或通过订单中心严格匹配"
         self.s.store.finish(self.s.key, "confirmed", oid, detail)
         self.s.store.event(self.s.task.id, "success", {"order_id": oid, "price": str(quote.total),
-            "payment_status": "pending" if pending else "未核实支付状态"})
+            "payment_status": 'paid' if self.s.auto_payment.status == 'paid' else "pending" if pending else "未核实支付状态"})
         if pending:
             payment = "订单待付款，请手动付款"
         else:
             payment = "在线支付，等待手动付款"
+        if self.s.task.auto_pay:
+            payment = '订单已生成，继续自动付款' if self.s.auto_payment.status != 'paid' else '已核对付款成功'
         LOG.info("[%s] 已确认订单号=%s 应付=%s，%s", self.s.task.id, oid, quote.total, payment)
         await self.snapshot("success")
         await notify(self.s.cfg.notification["desktop"], "京东下单成功", f"{self.s.task.name}，应付 ¥{quote.total}，订单号 {oid}，{payment}")
@@ -168,17 +188,51 @@ class Order(PageTools):
         return closed
 
     async def submit(self):
+        policy = self.s.task.retry
+        start = self.s.scheduler.now_ns()
+        cutoff = ((self.s.target_ns if self.s.target_ns is not None else start)
+                  + int(policy['timeout_seconds'] * 1e9))
+        attempts = policy['max_attempts'] if policy['enabled'] else 1
+        previous = None
+        for attempt in range(1, attempts + 1):
+            try:
+                return await self._submit_once(previous, retry=attempt > 1)
+            except SubmissionRejected as exc:
+                previous = self.s.checkout_quote
+                delay = max(policy['interval_ms'] / 1000 * min(2 ** (attempt - 1), 8),
+                            exc.feedback.get('retry_after_seconds', 0))
+                now = self.s.scheduler.now_ns()
+                if (attempt >= attempts or now + int(delay * 1e9) >= cutoff or
+                        self.s.auto_payment.triggered):
+                    self.s.store.finish(self.s.key, 'unknown', detail='明确提示：' + str(exc) + '；重试窗口已截止，保留防重记录')
+                    raise StopOrder('京东提示“' + str(exc) + '”，已关闭弹窗；本轮重试次数或时间窗口耗尽，未确认订单') from None
+                self.s.store.event(self.s.task.id, 'submission_retry',
+                    {'attempt': attempt, 'delay_ms': round(delay * 1000), 'reason': str(exc)})
+                LOG.info('[%s] 已关闭提交过快提示，%.2f 秒后在当前结算页有限重试，不刷新购物车', self.s.task.id, delay)
+                await self.s.scheduler.wait(now + int(delay * 1e9))
+
+    async def _submit_once(self, previous=None, *, retry=False):
         if (urlparse(self.page.url).hostname == 'pc-settlement-lite-pro.pf.jd.com' and
                 not getattr(self, 'payment_guard', None)):
             raise StopOrder('轻量结算必须先启用仅生成订单的付款拦截，停止最终点击')
-        if self.s.store.get(self.s.key):
+        if self.s.store.get(self.s.key) and not retry:
             raise StopOrder("同一任务已有提交记录，请先核实京东订单中心")
         guard = getattr(self.s, "submission_guard", None)
-        if guard is not None:
+        if guard is not None and not retry:
             guard.check(self.s.task, self.s.target_ns)
+        # 清掉操作之前就存在的限频提示，不能误把旧提示当作本次请求被明确拒绝。
+        existing = submission_feedback(await main_body_text(self.page))
+        if existing and existing['kind'] == 'rate_limit':
+            if not await dismiss_submission_prompt(self.page, existing['message'], self.activate,
+                    timeout=min(700, self.s.cfg.jd['action_timeout_ms'])):
+                raise StopOrder('结算页已有提交过快提示，但无法确认关闭，未继续点击订单按钮')
         quote = await self.s.checkout.validate()
         if await self.s.checkout.fill_payment_password():
             quote = await self.s.checkout.validate()
+        if previous is not None and quote.total > previous.total:
+            raise StopOrder('限频重试前应付金额上涨，停止继续提交')
+        self.s.checkout_quote = quote
+        self.s.auto_payment.arm(quote)
         button = await self.find("submit")
         if not await button.is_enabled() or await button.get_attribute("aria-disabled") == "true":
             from core.errors import Retryable
@@ -189,11 +243,17 @@ class Order(PageTools):
                 self.s.scheduler.now_ns() >= self.s.target_ns + int(self.s.task.retry['timeout_seconds'] * 1e9)):
             raise StopOrder('本任务购买窗口已截止，停止最终提交')
         persist = lambda: self.s.store.claim(self.s.key, self.s.task.id, quote.total)
-        if guard is None:
-            persist()
+        if not retry:
+            if guard is None:
+                persist()
+            else:
+                guard.claim(self.s.task, self.s.target_ns, persist, amount=quote.total)
         else:
-            guard.claim(self.s.task, self.s.target_ns, persist, amount=quote.total)
+            self.s.store.update_quote(self.s.key, quote.total)
         self.s.submitted = True
+        if self.s.task.auto_pay:
+            # “立即支付”入口可能由页面直接继续扣款；第一次点击之前就保留付款意图。
+            self.s.auto_payment.reserve(quote.total)
         submitted_at = self.s.scheduler.now_ns() / 1e9
         error = None
         origin = self.page
@@ -225,11 +285,18 @@ class Order(PageTools):
                 if await self.s.checkout.password_error():
                     error = StopOrder("京东提示支付密码校验未通过，请核实订单状态")
                     break
-                if not password_closed and await self.dismiss_post_submit_password(origin):
+                if self.s.task.auto_pay:
+                    preview = await result_body_text(self.page)
+                    known = self.success(preview) if urlparse(self.page.url).hostname != 'order.jd.com' else None
+                    if known:
+                        await self.confirmed(known, quote, pending=bool(re.search(r'待付款|待支付|等待付款', preview)))
+                        return known
+                    await self.s.auto_payment.advance(quote)
+                elif not password_closed and await self.dismiss_post_submit_password(origin):
                     password_closed = True
                     closed_at = time.monotonic()
                     continue
-                text = await main_body_text(self.page)
+                text = await result_body_text(self.page)
                 found = self.success(text) if urlparse(self.page.url).hostname != "order.jd.com" else None
                 if found:
                     if success_seen_at is None:
@@ -267,6 +334,10 @@ class Order(PageTools):
             if not watcher.done():
                 watcher.cancel()
             await asyncio.gather(watcher, return_exceptions=True)
+        if (completed and feedback.get('kind') == 'rate_limit' and feedback.get('closed') and
+                self.page is origin and checkout_url(self.page.url) and
+                not getattr(self, 'payment_guard', None) and not self.s.auto_payment.triggered):
+            raise SubmissionRejected(feedback)
         self.s.store.finish(self.s.key, "unknown", detail="提交后未读到成功页，正在只读查询订单中心")
         found = await self.reconcile(quote, submitted_at)
         if found:

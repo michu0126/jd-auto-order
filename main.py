@@ -376,7 +376,9 @@ async def _run_one(session, purchase_lock, lease, dry_run=False, now=False):
                     session.store.event(task.id, "dry_run", "结算已核对，没有提交订单")
                     LOG.info("[%s] 演练完成，没有提交订单", task.id)
                 else:
-                    await session.order.submit()
+                    order_id = await session.order.submit()
+                    if getattr(task, 'auto_pay', False):
+                        await session.auto_payment.finish(session.checkout_quote, order_id)
             return True
         except (LoginRequired, VerificationRequired) as exc:
             if session.submitted:

@@ -20,6 +20,9 @@ class StateStore:
                 id INTEGER PRIMARY KEY, task_id TEXT, time TEXT, state TEXT, detail TEXT);
             CREATE TABLE IF NOT EXISTS states (
                 task_id TEXT PRIMARY KEY, time TEXT, state TEXT, detail TEXT);
+            CREATE TABLE IF NOT EXISTS payments (
+                task_key TEXT PRIMARY KEY, task_id TEXT, status TEXT, updated TEXT,
+                amount TEXT, order_id TEXT, detail TEXT);
         ''')
         self.db.commit()
 
@@ -50,11 +53,33 @@ class StateStore:
             self.db.execute("UPDATE submissions SET status=?, updated=?, order_id=?, detail=? WHERE task_key=?",
                 (status, datetime.now(CST).isoformat(), orderid, detail, key))
 
+    def payment(self, key):
+        return self.db.execute("SELECT status,order_id,detail FROM payments WHERE task_key=?", (key,)).fetchone()
+
+    def update_quote(self, key, amount):
+        with self.db:
+            self.db.execute("UPDATE submissions SET price=? WHERE task_key=? AND status='submitting'", (str(amount), key))
+
+    def claim_payment(self, key, taskid, amount, orderid=""):
+        try:
+            with self.db:
+                self.db.execute("INSERT INTO payments VALUES(?,?,?,?,?,?,?)", (key, taskid, "submitting",
+                    datetime.now(CST).isoformat(), str(amount), orderid, "付款意图已落盘，结果不明不重复扣款"))
+        except sqlite3.IntegrityError as exc:
+            raise StopOrder("本任务已有付款记录，请先核实支付结果，不重复扣款") from exc
+
+    def finish_payment(self, key, status, orderid="", detail="", amount=None):
+        with self.db:
+            self.db.execute("UPDATE payments SET status=?,updated=?,order_id=?,detail=?,amount=COALESCE(?,amount) WHERE task_key=?",
+                (status, datetime.now(CST).isoformat(), orderid, detail, str(amount) if amount is not None else None, key))
+
     def snapshot(self):
         states = [dict(zip(("task_id", "time", "state", "detail"), row)) for row in self.db.execute("SELECT * FROM states")]
         orders = [dict(zip(("task_key", "task_id", "status", "updated", "price", "order_id", "detail"), row))
                   for row in self.db.execute("SELECT * FROM submissions ORDER BY updated DESC LIMIT 50")]
-        return {"tasks": states, "orders": orders}
+        payments = [dict(zip(("task_key", "task_id", "status", "updated", "amount", "order_id", "detail"), row))
+                    for row in self.db.execute("SELECT * FROM payments ORDER BY updated DESC LIMIT 50")]
+        return {"tasks": states, "orders": orders, "payments": payments}
 
     def close(self):
         self.db.close()

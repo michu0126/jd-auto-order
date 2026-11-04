@@ -13,6 +13,7 @@ jd:
   login_settle_seconds: 1.5
   action_timeout_ms: 5000
   result_timeout_seconds: 30
+  payment_timeout_seconds: 60
   keep_browser_open: true
   block_media: true
   # 在内置结算文案之外追加活动页按钮原文。
@@ -27,6 +28,8 @@ purchase:
   purchase_mode: cart
   payment_method: online
   auto_submit: true
+  # 勾选管理页的自动付款后，才会在提交订单后继续扣款。
+  auto_pay: false
   quantity: 1
   sku_options: {}
   require_breakdown: true

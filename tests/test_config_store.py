@@ -40,6 +40,15 @@ class TaskEditorTests(unittest.TestCase):
         self.assertTrue(self.path.with_suffix(".backup.yaml").exists())
         self.assertFalse((cfg.data_dir / "state.sqlite3").exists())
 
+    def test_auto_pay_must_be_explicit_and_is_preserved_when_editing(self):
+        task = upsert_task(self.path, self.form)
+        self.assertFalse(task['auto_pay'])
+        saved = upsert_task(self.path, self.form | {'id': task['id'], 'auto_pay': True})
+        self.assertTrue(saved['auto_pay'])
+        again = upsert_task(self.path, self.form | {'id': task['id']})
+        self.assertTrue(again['auto_pay'])
+        self.assertTrue(Config.load(self.path).tasks[0].auto_pay)
+
     def test_edit_and_delete_task_allow_empty_configuration(self):
         result = upsert_task(self.path, self.form)
         updated = upsert_task(self.path, self.form | {"id": result["id"], "payment_method": "online", "enabled": False})

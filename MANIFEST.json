@@ -7,16 +7,16 @@
       "bytes": 372
     },
     "README.md": {
-      "sha256": "bb243f2a69b586718c68992938ff62ec423e4de5d72823cbbecd9a5a8a5833af",
-      "bytes": 13850
+      "sha256": "11e8eacbed427052b092c44c62d71b83c5c1b793cbcb86efa1018b26bd543e0a",
+      "bytes": 15471
     },
     "SHARE_README.md": {
-      "sha256": "902381750d33a0a8220c2a496f41e8ef2a81c95d060227e2ef6567b44b8aec63",
-      "bytes": 13464
+      "sha256": "b9339d4ec240ddd71f852daeebc2111e82c46cf609be2183856d04ea3d7f64c0",
+      "bytes": 15085
     },
     "config.example.yaml": {
-      "sha256": "6ed55c9deb26fe57f0588cba302560921e8c35df8bbbda15e9baac9b7759036e",
-      "bytes": 2396
+      "sha256": "4e674f9671f2d613a9c5ba39bada15e91c8af34e2e7b4c7a08a7d8f93685d0b0",
+      "bytes": 2527
     },
     "core/__init__.py": {
       "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
@@ -35,16 +35,16 @@
       "bytes": 2044
     },
     "core/config.py": {
-      "sha256": "d767d9a6dea832725c0ab344611911692426f14865beb56856088775b79c9e88",
-      "bytes": 18040
+      "sha256": "410897e313b9dd53de7e067b5ea869a5bbcb2fa4ecde59398ac7687c2e5f4dc3",
+      "bytes": 18406
     },
     "core/config_store.py": {
-      "sha256": "6bbd85748e4aa954db1fca4ffef44bf7ff455687417ae52494fedd0f43214f05",
-      "bytes": 9758
+      "sha256": "15cf5707de4b0a27ebc56dfd0d924f3d8b0b433da4b081f442f064cad66a6af4",
+      "bytes": 9869
     },
     "core/errors.py": {
-      "sha256": "9e66bd8e0e3b2a33dde9531f0236b4466ccae186506a3d6c9b952dd6457964ad",
-      "bytes": 354
+      "sha256": "783c60a83b7e01d66fb31b946c277511cf34aa6ab6f2696c20ac23ef83d89287",
+      "bytes": 616
     },
     "core/payment_secret.py": {
       "sha256": "d5a3d1eaffd46b2ea9ee5d2de6d9971126f7ba2b39b37e13ef129984be75060c",
@@ -71,8 +71,8 @@
       "bytes": 1911
     },
     "core/state_machine.py": {
-      "sha256": "d039704b04a3b34fbbdedd5773a5543e10635254ccd550278070ea78e7f0734d",
-      "bytes": 2948
+      "sha256": "a94797acec719428522560d6db771530db7042799041df1b3a3e8d6c004bdf00",
+      "bytes": 4565
     },
     "core/worker.py": {
       "sha256": "2c7ee8298f285a5c7689b5d72e9a5ba7532689733fbe8a83fceff83935c312d2",
@@ -87,12 +87,12 @@
       "bytes": 4011
     },
     "jd/browser.py": {
-      "sha256": "917f5e6cc0c42b264b5ff63cb922af0ce57eab4b4d251d65ea7286f77ad0b7b3",
-      "bytes": 5535
+      "sha256": "05a657386e68249ed5721122bf0c9c39183c47ace73aaa9b067e5a0d3c6c0efc",
+      "bytes": 5624
     },
     "jd/cart.py": {
-      "sha256": "5095d4616168bb746ec6d97c5d5ac1c121365855c781a3d7edcee14a1c238314",
-      "bytes": 18524
+      "sha256": "d7f6134d4111e4361f2da4c5275ba038a660895244d0ac168bcf8d7db1544611",
+      "bytes": 20847
     },
     "jd/cart_scan.py": {
       "sha256": "e1485ff512ca1fdaddfb117af3ce1cb6476f72e4f35e5095322aeda9070a0142",
@@ -103,40 +103,48 @@
       "bytes": 15981
     },
     "jd/common.py": {
-      "sha256": "d9bbf85a2c57234a5889b0ff87a7d33dcb731c991b4eaf87403c4290a48eac2e",
-      "bytes": 15675
+      "sha256": "dd9ef687c563cfbc7b5ce81a3de2c2dfcd985fd9e88974104a7424d4ff2ff641",
+      "bytes": 15716
     },
     "jd/dom.py": {
-      "sha256": "3b5eb819a5ccb61040c3c332afc52a1ecd0f639ee3b29a80f0d986f7e8828cf6",
-      "bytes": 375
+      "sha256": "a01d205ea00d40394ad76451fd54d656b7815eb5e9824f3fcaa15d5d16f1a878",
+      "bytes": 949
     },
     "jd/embedded_checkout.py": {
-      "sha256": "5334c28842046f3f2ecfc75d1a0838a983333f53296f6bd47119e243d9374a0c",
-      "bytes": 10307
+      "sha256": "82256c6f8ae59737e3f38d60f6fdaf17bb5d31f945155639248744f23b93f49e",
+      "bytes": 10507
     },
     "jd/login.py": {
       "sha256": "4973d4f261f6bed59ef86e7d300d77b7eae38c7db24cf5f88b84661855224984",
       "bytes": 8503
     },
     "jd/order.py": {
-      "sha256": "c5176a26607bb12bcf5d4240038362560bfcfd5ab8f3f4318f3acc6295f3ab41",
-      "bytes": 15056
+      "sha256": "f4563e29a9487c3b4472287d5aefd1c59e256de72a9c24e4c00a27390080f5c4",
+      "bytes": 20024
     },
     "jd/password_prompt.py": {
       "sha256": "2b93f80b02db3789024f0cbbe4c4d231728452dc65899a5cbbef61072ae6f69f",
       "bytes": 2686
     },
+    "jd/payment.py": {
+      "sha256": "10af9fcef9277c3dac65960246bd8317565d9fedaf4afb8680c8d9ae56f54e8d",
+      "bytes": 12389
+    },
     "jd/product.py": {
       "sha256": "bd6b937cd16f302529d4c59c3d4fa47f6be1e5f415b18d3adaab589bd9be36bb",
       "bytes": 7916
+    },
+    "jd/submission_prompt.py": {
+      "sha256": "5e3f0119bbdcd6b0f96eac00edf2131adc5eba2ca63414890209f623f33efd64",
+      "bytes": 1454
     },
     "jd/submit_button.py": {
       "sha256": "79a7c4495727b4394125d1c5bd8f6245e7866458ddb4303fd5c657be48013530",
       "bytes": 2629
     },
     "main.py": {
-      "sha256": "037330ee0d9364ff49e7400d5df96b057dab68f819cd44c5660d682eee71f419",
-      "bytes": 36805
+      "sha256": "7386ed7c169aa69981832e190168dd0c78df75e8d92026726cd763e4aeb73dd5",
+      "bytes": 36967
     },
     "marketplaces/__init__.py": {
       "sha256": "32f5da2892beb78a9e551569393c56807012cbd3f84d6bcab3714b74020dca26",
@@ -187,8 +195,8 @@
       "bytes": 2570
     },
     "tests/test_browser.py": {
-      "sha256": "0bdfc88ea14a92c98674fa4dd4f0172dc5292b14a7218a8315d3c17fd939c979",
-      "bytes": 122698
+      "sha256": "c3d400f00c09fa9551e937e262d8b091771e9b1fcfea0adf44d0bd90f7748ac3",
+      "bytes": 125040
     },
     "tests/test_browser_connection.py": {
       "sha256": "c55203d6376abfe4835f182897cf2731a2824eab139015e3b5130002bb9aa6a6",
@@ -203,12 +211,12 @@
       "bytes": 8922
     },
     "tests/test_config_store.py": {
-      "sha256": "67ee2c61bf4ab572ec3d7f9480619065dcaa929c7d7c10a875d3850e50612099",
-      "bytes": 8933
+      "sha256": "52f0a323666caece41df9dd1056ff125ab8662411fd18437aca9ed7898796d97",
+      "bytes": 9414
     },
     "tests/test_core.py": {
-      "sha256": "c8f11472be673e8ed6d64d471602ff26aaea2890a17e1e7a9ac9c0ef2be3aaff",
-      "bytes": 12017
+      "sha256": "3a65f54158a1497fa4be2bc85a8357300ba3b9c1cf1f093b2ad59b51e718414e",
+      "bytes": 13278
     },
     "tests/test_embedded_checkout.py": {
       "sha256": "815a66755c2b2c495a9330bef48a364d05ec6027801884bd7abd6e2306438161",
@@ -225,6 +233,10 @@
     "tests/test_multiplatform.py": {
       "sha256": "8ce973d2a56ffc9fc15369d608f27af2cadbdbde819f9b30f7c4e1293e4ff824",
       "bytes": 9456
+    },
+    "tests/test_payment.py": {
+      "sha256": "552bb4c7858cb3c937b8fb80546a6c164657b338f54aac462b9fbbcfd9603bf3",
+      "bytes": 13542
     },
     "tests/test_payment_secret.py": {
       "sha256": "7b4e22b8a2f24f08e4483158dad1e67da6627bbebf30844ef092043eae3593eb",
@@ -247,24 +259,24 @@
       "bytes": 5171
     },
     "tests/test_ui.py": {
-      "sha256": "0b832b89c86a53d36f676534f727e827607a8ecf42277afb7e5c326e25251d4e",
-      "bytes": 16700
+      "sha256": "8d6ec479f3f42509fe848a2e847f48bb1eb16a8dfaba6b8a7ae62663260d62d2",
+      "bytes": 17824
     },
     "tests/test_web.py": {
       "sha256": "2c02880781cd31b8421a1fe7aee51b5b25517ca51ae1d0b30f53d0700674b7bc",
       "bytes": 8552
     },
     "tools/package_source.py": {
-      "sha256": "9a1d4fd71c0e4e50a69d40f0f6849c181e526770aa82d8198a467e2f0f478afb",
-      "bytes": 4160
+      "sha256": "884204cd92b3f11318f2e8a007fcdbab8dfbc5069c85748d82722fa15cfb483d",
+      "bytes": 4336
     },
     "ui/app.js": {
-      "sha256": "0ce343c946973c0bb8da145f8f7927aa585837e943235f8e3560f620fcd1c813",
-      "bytes": 17210
+      "sha256": "136178cd550e2846ec89d86e8adb9b72cb474aace8a59e59f7fc4cae822b4bd1",
+      "bytes": 17858
     },
     "ui/index.html": {
-      "sha256": "0b6dfc9c29aff8b94988a30f8b85eff9057ec454eae20d5e453bd734dcb03c44",
-      "bytes": 9923
+      "sha256": "4668fa5026515630c834f6e0d15e72ea719619d20b5c5b07f196c92e2b2b0438",
+      "bytes": 10346
     },
     "ui/style.css": {
       "sha256": "1c02647aa8ced83131d8ce96e3d147d13d5e3c8152d49c5af734b80cbe080302",
@@ -283,8 +295,12 @@
       "bytes": 1941
     },
     "webapp.py": {
-      "sha256": "4cddd60ce0a71e3bacd8bbd0e4e5f234a5d8a6c7f2ee995e3868c9efca8fd92d",
-      "bytes": 13625
+      "sha256": "02b2311ee5dbe8aac967e3fee953c8a8fc556461f2ceeb9e306789a736ca1540",
+      "bytes": 13723
+    },
+    "tools/verify_share_package.py": {
+      "sha256": "df7576035dd7bbe7e0169a40b9901c3c2112e229cd1c244558ad33bfdb65ce55",
+      "bytes": 9759
     }
   }
 }

@@ -87,6 +87,7 @@ class Task:
     product_link: str = ""
     recurrence: str = "once"
     variant_id: str = ""
+    auto_pay: bool = False
 
     @property
     def url(self):
@@ -160,7 +161,7 @@ class Config:
               "management_port": 8765,
               "session_dir": "./data/session", "manual_timeout_seconds": 300,
               "login_check_timeout_seconds": 15, "login_settle_seconds": 1.5,
-              "action_timeout_ms": 5000, "result_timeout_seconds": 30,
+              "action_timeout_ms": 5000, "result_timeout_seconds": 30, "payment_timeout_seconds": 60,
               "keep_browser_open": True, "block_media": True} | data.get("jd", {})
         if jd["browser"] not in ("chrome", "msedge", "chromium") or jd["login_mode"] != "qrcode":
             raise StopOrder("browser 支持 chrome/msedge/chromium；login_mode 支持 qrcode")
@@ -198,7 +199,8 @@ class Config:
             jd[name] = boolean(jd, name, jd[name])
         for name, default, low, high in (("manual_timeout_seconds", 300, 1, 3600),
                 ("login_check_timeout_seconds", 15, 1, 60), ("login_settle_seconds", 1.5, 0.2, 10),
-                ("action_timeout_ms", 5000, 500, 60000), ("result_timeout_seconds", 30, 1, 300)):
+                ("action_timeout_ms", 5000, 500, 60000), ("result_timeout_seconds", 30, 1, 300),
+                ("payment_timeout_seconds", 60, 1, 300)):
             jd[name] = number(jd, name, default, low, high)
         timing = {"prewarm_seconds": 60, "precision_mode": True, "sync_clock": True,
                   "cart_preload_timeout_seconds": 15,
@@ -279,12 +281,15 @@ class Config:
             recurrence = value.get("recurrence", "once")
             if recurrence not in ("once", "daily"):
                 raise StopOrder("recurrence 支持 once 或 daily")
+            auto_pay = boolean(value, "auto_pay", False)
+            if auto_pay and (platform != "jd" or not boolean(value, "auto_submit", True)):
+                raise StopOrder("自动付款仅支持已启用自动提交的京东任务")
             tasks.append(Task(taskid, name, sku, number(value, "quantity", 1, 1, 99, integer=True),
                 start_time(value["target_time"]), money(value["max_price"]) if value.get("max_price") not in (None, "") else None, mode,
                 boolean(value, "auto_submit", True), options, address, discounts, retry,
                 boolean(value, "require_breakdown", True), payment,
                 boolean(value, "enabled", True), source, cart_spec, platform, link, recurrence,
-                variant_id(link, raw.get("variant_id", "")) if platform != "jd" else ""))
+                variant_id(link, raw.get("variant_id", "")) if platform != "jd" else "", auto_pay))
         if len({task.id for task in tasks}) != len(tasks):
             raise StopOrder("任务 id 不可重复")
         selectors = data.get("selectors", {})

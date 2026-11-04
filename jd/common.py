@@ -265,7 +265,7 @@ class PageTools:
             LOG.warning("[%s] 保存调试页面信息失败", self.s.task.id)
         try:
             await self.page.screenshot(path=str(folder / f"{stamp}-{reason}.png"), full_page=True, timeout=10000,
-                mask=[self.page.locator(".payment-summary-password__input, input[type=password]")])
+                mask=[self.page.locator(".payment-summary-password__input, input[type=password], input[inputmode=numeric][maxlength='1']")])
         except Exception:
             LOG.warning("[%s] 保存截图失败", self.s.task.id)
 

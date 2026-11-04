@@ -22,6 +22,8 @@ class Cart(PageTools):
         self._transition_listener = None
         self._selection_handoff = None
         self._selection_listener = None
+        self._checkbox_failures = 0
+        self._checkbox_refresh_due = False
 
     def clear_selection_handoff(self):
         if self._selection_listener is not None:
@@ -139,6 +141,8 @@ class Cart(PageTools):
     async def preload(self, refresh=True):
         """只加载购物车，不要求目标已开售，也不改变勾选和数量。"""
         self.clear_selection_handoff()
+        self._checkbox_failures = 0
+        self._checkbox_refresh_due = False
         self.s.cart_selection = None
         self.s.cart_selected_ns = None
         self.s.cart_pending = False
@@ -244,19 +248,49 @@ class Cart(PageTools):
         try:
             if await checkbox.is_checked(timeout=timeout) != expected:
                 if await checkbox.is_visible():
-                    await self.set_checkbox(checkbox, expected, timeout=timeout)
+                    # 键盘切换原生复选框不依赖两帧布局稳定；仍确认真实命中、未禁用及 SKU。
+                    hit = await checkbox.evaluate("""el => {
+                        el.scrollIntoView({block:'center',inline:'center',behavior:'instant'});
+                        const r=el.getBoundingClientRect(), s=getComputedStyle(el);
+                        if (!r.width || !r.height || s.visibility==='hidden' || s.display==='none' ||
+                            s.pointerEvents==='none' || el.disabled) return false;
+                        const top=document.elementFromPoint(r.x+r.width/2,r.y+r.height/2);
+                        return top===el || !!top && (el.contains(top) || top.closest('label')?.control===el);
+                    }""")
+                    if not hit:
+                        raise Retryable('勾选框点击位置被遮挡或不可命中')
+                    if await checkbox.is_checked(timeout=timeout) != expected:
+                        await checkbox.press('Space', timeout=timeout)
+                    if await checkbox.is_checked(timeout=timeout) != expected:
+                        raise Retryable('勾选状态尚未同步')
                 else:
                     await self.activate(await self.find("cart_checkbox_click", scope=row, timeout=timeout), timeout=timeout)
-        except PlaywrightError as exc:
+        except (PlaywrightError, Retryable) as exc:
             if self.page.is_closed():
                 raise
-            raise self.pending("购物车勾选控件正在更新，保留页面稍后核对") from exc
+            self._checkbox_failures += 1
+            reason = str(exc).splitlines()[0][:240]
+            LOG.warning('[%s] 勾选失败第 %d 次：%s', self.s.task.id, self._checkbox_failures, reason)
+            error = self.pending('购物车勾选控件正在更新，保留页面稍后核对')
+            if self._checkbox_failures >= 3:
+                self._checkbox_refresh_due = True
+                self.s.cart_pending = False
+                LOG.warning('[%s] 连续勾选失败，下一轮先检查验证状态，再刷新购物车恢复', self.s.task.id)
+            raise error from exc
 
     async def select(self, refresh=True):
         self.clear_selection_handoff()
         self.s.cart_timings = {}
         self.s.cart_selection = None
         self.s.cart_selected_ns = None
+        if self._checkbox_refresh_due:
+            # 刷新前先识别人工验证，不刷新掉验证页面；提交或结算开始后不能恢复购物车。
+            await self.guard()
+            if self.s.submitted or self.s.cart_checkout_started:
+                raise StopOrder('已开始结算或提交，停止购物车刷新恢复')
+            refresh = True
+            self._checkbox_refresh_due = False
+            self._checkbox_failures = 0
         preserve = self.s.cart_pending and "cart.jd.com" in self.page.url
         self.s.cart_pending = False
         if "cart.jd.com" not in self.page.url or (refresh and not preserve):
@@ -294,6 +328,8 @@ class Cart(PageTools):
         async with self.step("verify"):
             await self.verify()
         self.s.cart_selected_ns = self.s.scheduler.now_ns()
+        self._checkbox_failures = 0
+        self._checkbox_refresh_due = False
 
     async def checkout_button(self):
         deadline = time.monotonic() + self.s.cfg.jd["action_timeout_ms"] / 1000

@@ -84,6 +84,7 @@ def serve(config_path, port=8765, open_browser=False):
                         browser_settings = {}
                     return self.reply(200, {"yaml": config_path.read_text(encoding="utf-8"),
                         "tasks": tasks, "platforms": platforms, "browser": browser_settings,
+                        "features": ["auto_pay", "submission_prompts", "cart_checkbox_recovery"],
                         "task_sources": ["cart", "manual"], "config_file": str(config_path)})
                 if self.path == "/api/cart":
                     with lock:

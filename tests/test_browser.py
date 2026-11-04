@@ -557,6 +557,42 @@ class BrowserTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(self.cart_load_times), 1)
         self.assertEqual(self.session.cart_selection, {'sku': SKU, 'quantity': 1})
 
+    async def test_moving_native_checkbox_is_selected_without_waiting_for_layout_stability(self):
+        self.cart_html = CART.replace('</body>', '''<style>
+        @keyframes moving {from{transform:translateX(0)}to{transform:translateX(2px)}}
+        .item-item input[type=checkbox]{animation:moving .08s linear infinite alternate}
+        </style></body>''')
+        await self.session.cart.select()
+        self.assertEqual(self.session.cart_selection, {'sku': SKU, 'quantity': 2})
+        self.assertTrue(await self.page.locator('.item-item input[type=checkbox]').first.is_checked())
+        self.assertFalse(await self.page.locator('.item-item input[type=checkbox]').nth(1).is_checked())
+
+    async def test_persistently_blocked_cart_checkbox_refreshes_after_three_failures(self):
+        await self.session.cart.preload()
+        await self.page.locator('.item-item input[type=checkbox]').nth(1).uncheck()
+        await self.page.evaluate("document.body.insertAdjacentHTML('beforeend','<div style=\"position:fixed;inset:0;z-index:99999\"></div>')")
+        for _ in range(3):
+            with self.assertRaises(Retryable):
+                await self.session.cart.select(refresh=False)
+        self.assertEqual(len(self.cart_load_times), 1)
+        await self.session.cart.select(refresh=True)
+        self.assertEqual(len(self.cart_load_times), 2)
+        self.assertEqual(self.session.cart_selection, {'sku': SKU, 'quantity': 2})
+        self.assertEqual(self.submit_hits, 0)
+
+    async def test_cart_checkbox_recovery_does_not_refresh_away_verification(self):
+        await self.session.cart.preload()
+        await self.page.locator('.item-item input[type=checkbox]').nth(1).uncheck()
+        await self.page.evaluate("document.body.insertAdjacentHTML('beforeend','<div style=\"position:fixed;inset:0;z-index:99999\"></div>')")
+        for _ in range(3):
+            with self.assertRaises(Retryable):
+                await self.session.cart.select(refresh=False)
+        await self.page.evaluate("document.body.insertAdjacentHTML('beforeend','<p>验证一下，购物无忧</p>')")
+        with self.assertRaises(VerificationRequired):
+            await self.session.cart.select(refresh=True)
+        self.assertEqual(len(self.cart_load_times), 1)
+        self.assertEqual(self.submit_hits, 0)
+
     async def test_cart_ready_rows_do_not_wait_for_deferred_page_script(self):
         release = asyncio.Event()
         normal_route = self.route
