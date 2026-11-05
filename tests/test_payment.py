@@ -6,7 +6,7 @@ from decimal import Decimal
 from urllib.parse import urlsplit
 from unittest.mock import AsyncMock, patch
 
-from core.errors import StopOrder
+from core.errors import Retryable, StopOrder
 from core.payment_secret import PaymentSecret
 from jd.checkout import Quote
 from jd.payment import AutoPayment
@@ -34,6 +34,7 @@ class PaymentTests(unittest.IsolatedAsyncioTestCase):
                 self.pay_hits = getattr(self, 'pay_hits', 0) + 1
                 html = getattr(self, 'paid_html', PAID)
             else:
+                self.cashier_hits = getattr(self, 'cashier_hits', 0) + 1
                 html = getattr(self, 'cashier_html', CASHIER)
             return await route.fulfill(content_type='text/html; charset=utf-8', body=html)
         return await fixtures.BrowserTests.route(self, route)
@@ -56,6 +57,28 @@ class PaymentTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(await run_one(self.session, asyncio.Lock(), dry_run=True))
         self.assertEqual(self.submit_hits, 0)
         self.assertEqual(getattr(self, 'pay_hits', 0), 0)
+        self.assertIsNone(self.store.payment(self.session.key))
+
+    async def test_fast_cart_can_submit_then_pay_exactly_once(self):
+        self.enable()
+        self.session.task.mode = self.session.task.source = 'cart'
+        self.checkout_html = fixtures.CHECKOUT.replace('https://trade.jd.com/success', 'https://pay.jd.com/cashier')
+        with patch.object(self.session.checkout, 'validate', new=AsyncMock(side_effect=AssertionError('不应重复核对结算'))):
+            self.assertTrue(await run_one(self.session, asyncio.Lock(), now=True))
+        self.assertEqual(self.cashier_hits, 1)
+        self.assertEqual(self.pay_hits, 1)
+        self.assertEqual(self.store.payment(self.session.key)[:2], ('paid', OID))
+
+    async def test_fast_cart_auto_payment_still_needs_actual_amount(self):
+        self.enable()
+        self.session.task.mode = self.session.task.source = 'cart'
+        self.checkout_html = fixtures.CHECKOUT.replace('id="sumPayPriceId"', 'id="unavailable-price"')
+        await self.session.cart.select()
+        await self.session.cart.checkout()
+        with self.assertRaisesRegex(Retryable, '应付金额仍未就绪'):
+            await self.session.order.submit()
+        self.assertEqual(self.submit_hits, 0)
+        self.assertIsNone(self.store.get(self.session.key))
         self.assertIsNone(self.store.payment(self.session.key))
 
     async def test_cashier_default_button_pays_known_order_once(self):

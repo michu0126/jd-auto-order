@@ -81,6 +81,8 @@ class Cart(PageTools):
             if ready:
                 self.s.page = ready[0]
                 self.s.cart_checkout_reached = True
+                self.s.cart_checkout_page = self.s.page
+                self.s.cart_checkout_reached_ns = self.s.scheduler.now_ns()
                 self.stop_transition_watch()
                 self.s.store.event(self.s.task.id, "checkout_page", {"page": self.page_location(),
                     "new_window": self.page is not self._transition_origin}, update_state=False)
@@ -233,6 +235,7 @@ class Cart(PageTools):
             raise self.pending("购物车更新后数量与任务不符，保持当前页面重新核对")
         self.s.cart_pending = False
         self.s.cart_selection = {"sku": self.s.task.sku, "quantity": self.s.task.quantity}
+        self.s.cart_selected_ns = self.s.scheduler.now_ns()
         self.remember_selection()
 
     async def set_checked(self, state, expected):
@@ -390,8 +393,11 @@ class Cart(PageTools):
         self.start_transition_watch()
         self.s.cart_checkout_started = True
         self.s.cart_checkout_reached = False
+        self.s.cart_checkout_page = None
+        self.s.cart_checkout_reached_ns = None
         try:
-            await self.click_transition(button, trigger=True)
+            # 跟随本次结算窗口，后续直接等待提交按钮，不等整页脚本加载完毕。
+            await self.click_transition(button, trigger=True, wait_for_load=self.s.task.source != 'cart')
             await self.wait_checkout()
         except PlaywrightError as exc:
             if "net::ERR_" in str(exc):

@@ -109,7 +109,7 @@ class PageTools:
         scope = scope if scope is not None else self.page
         deadline = time.monotonic() + (timeout if timeout is not None else self.s.cfg.jd["action_timeout_ms"]) / 1000
         while True:
-            if key in CHECKOUT_FIELDS:
+            if key in CHECKOUT_FIELDS and (required or key != "submit"):
                 await self.require_checkout()
             item = (await find_submit(self.page, self.s.selectors[key], self.s.cfg.jd["submit_button_texts"], "submit" in self.s.cfg.selectors)
                     if key == "submit" else await first_visible(scope, self.s.selectors[key]))
@@ -226,7 +226,7 @@ class PageTools:
         else:
             await node.set_checked(expected, timeout=timeout)
 
-    async def click_transition(self, button, trigger=False):
+    async def click_transition(self, button, trigger=False, *, wait_for_load=True):
         new_pages = []
         origin = self.page
         def on_popup(page):
@@ -243,9 +243,12 @@ class PageTools:
             # click 会等待普通导航，popup 事件在新页初始化时更新目标。
             if new_pages:
                 self.s.page = new_pages[-1]
+                if not wait_for_load:
+                    return
                 await self.page.wait_for_url(lambda url: str(url) not in ("", "about:blank"),
                     wait_until="domcontentloaded", timeout=15000)
-            await self.page.wait_for_load_state("domcontentloaded", timeout=15000)
+            if wait_for_load:
+                await self.page.wait_for_load_state("domcontentloaded", timeout=15000)
         finally:
             origin.remove_listener("popup", on_popup)
 

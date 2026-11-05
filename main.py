@@ -76,6 +76,13 @@ async def purchase_attempt(session, warmed, attempt):
             await session.product.specs()
             await session.product.buy()
             await session.cart.checkout()
+    if getattr(session.checkout, 'fast_cart_ready', False):
+        # 购物车选中后直达提交入口；默认优惠和支付均沿用页面，不逐项扫描。
+        discounts = session.task.discounts
+        if (discounts['coupon_text'] or not discounts['use_existing_coupons'] or
+                discounts['use_beans'] or discounts['use_red_packets']):
+            await session.checkout.discounts()
+        return
     await session.tools.guard()
     await session.tools.find("checkout_goods")
     await session.checkout.discounts()

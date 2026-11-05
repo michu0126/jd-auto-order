@@ -5,6 +5,7 @@ import time
 import unittest
 from datetime import datetime
 from dataclasses import replace
+from decimal import Decimal
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -1086,6 +1087,101 @@ class BrowserTests(unittest.IsolatedAsyncioTestCase):
             await self.session.order.submit()
         self.assertEqual(self.submit_hits, 0)
         self.assertIsNone(self.store.get(self.session.key))
+
+    async def prepare_fast_cart_order(self):
+        self.session.task.mode = 'cart'
+        self.session.task.source = 'cart'
+        self.session.task.max_price = None
+        await self.session.cart.select()
+        await purchase_attempt(self.session, warmed=True, attempt=1)
+
+    async def test_fast_cart_submits_without_goods_address_or_discount_rechecks(self):
+        with patch.object(self.session.checkout, 'discounts', new=AsyncMock(side_effect=AssertionError('默认优惠不应扫描'))), \
+                patch.object(self.session.checkout, 'validate', new=AsyncMock(side_effect=AssertionError('不应复核结算信息'))), \
+                patch.object(self.session.checkout, 'assert_submission_allowed', new=AsyncMock(side_effect=AssertionError('不应重复复核'))):
+            await self.prepare_fast_cart_order()
+            # 按用户要求依赖刚完成的购物车选品，不等商品、地址和运费组件出现。
+            await self.page.locator('.goods-list,#sendAddr,#warePriceId,#freightPriceId,#discountPriceId,#sumPayPriceId').evaluate_all(
+                'nodes=>nodes.forEach(el=>el.remove())')
+            oid = await self.session.order.submit()
+        self.assertEqual(oid, '123456789012')
+        self.assertEqual(self.submit_hits, 1)
+        self.assertEqual(self.store.snapshot()['orders'][0]['price'], '')
+        event = json.loads(self.store.db.execute("SELECT detail FROM events WHERE state='submit_click'").fetchone()[0])
+        self.assertTrue(event['fast_cart'])
+        self.assertGreaterEqual(event['since_checkout_ms'], 0)
+        with self.assertRaisesRegex(StopOrder, '已有提交记录'):
+            await self.session.order.submit()
+        self.assertEqual(self.submit_hits, 1)
+
+    async def test_fast_cart_does_not_wait_for_checkout_deferred_scripts(self):
+        release = asyncio.Event()
+        async def slow_script(route):
+            await release.wait()
+            await route.fulfill(content_type='application/javascript', body='window.checkoutTailLoaded=true')
+        await self.context.route('**/checkout-tail.js', slow_script)
+        self.checkout_html = CHECKOUT.replace('<body>', '''<body>
+            <script>window.dclSeen=false;document.addEventListener('DOMContentLoaded',()=>window.dclSeen=true)</script>
+            <script defer src="https://trade.jd.com/checkout-tail.js"></script>''')
+        try:
+            await asyncio.wait_for(self.prepare_fast_cart_order(), 3)
+            self.assertFalse(await self.page.evaluate('window.dclSeen'))
+            with patch.object(self.session.checkout, 'validate', new=AsyncMock(side_effect=AssertionError('不应复核'))):
+                await asyncio.wait_for(self.session.order.submit(), 3)
+            self.assertEqual(self.submit_hits, 1)
+            self.assertFalse(release.is_set())
+        finally:
+            release.set()
+
+    async def test_fast_cart_preserves_default_payment_and_optional_price_limit(self):
+        await self.prepare_fast_cart_order()
+        self.session.task.max_price = Decimal('100')
+        with self.assertRaisesRegex(StopOrder, '超过价格上限'):
+            await self.session.order.submit()
+        self.assertIsNone(self.store.get(self.session.key))
+        self.session.task.max_price = None
+        await self.page.locator('.payment-item').evaluate_all(
+            "nodes=>nodes.forEach(el=>el.addEventListener('click',()=>sessionStorage.setItem('paymentChanged','1')))")
+        await self.session.order.submit()
+        self.assertEqual(self.submit_hits, 1)
+        self.assertIsNone(await self.session.page.evaluate("sessionStorage.getItem('paymentChanged')"))
+        self.assertEqual(self.store.get(self.session.key)[0], 'confirmed')
+        self.assertEqual(self.session.checkout_quote.total, Decimal('199.00'))
+
+    async def test_fast_cart_password_fill_reads_updated_total_before_click(self):
+        self.checkout_html = CHECKOUT.replace('<button id="order-submit"', '''
+            <div class="payment-summary-password__input"><input type="password"
+            oninput="document.getElementById('sumPayPriceId').textContent='￥999.00'"></div><button id="order-submit"''')
+        await self.prepare_fast_cart_order()
+        self.session.task.max_price = Decimal('220')
+        self.session.payment_secret = PaymentSecret('654321')
+        with self.assertRaisesRegex(StopOrder, '超过价格上限'):
+            await self.session.order.submit()
+        self.assertEqual(self.submit_hits, 0)
+        self.assertIsNone(self.store.get(self.session.key))
+
+    async def test_fast_cart_rejects_offline_payment_without_clicking(self):
+        await self.prepare_fast_cart_order()
+        await self.page.locator('.payment-item').nth(1).click()
+        with self.assertRaisesRegex(StopOrder, '货到付款'):
+            await self.session.order.submit()
+        self.assertEqual(self.submit_hits, 0)
+
+    async def test_fast_cart_pauses_for_existing_verification_before_order_claim(self):
+        await self.prepare_fast_cart_order()
+        await self.page.evaluate("document.body.insertAdjacentHTML('afterbegin','<p>验证一下，购物无忧</p>')")
+        with self.assertRaises(VerificationRequired):
+            await self.session.order.submit()
+        self.assertEqual(self.submit_hits, 0)
+        self.assertIsNone(self.store.get(self.session.key))
+
+    async def test_fast_cart_waits_only_for_disabled_submit_then_continues(self):
+        self.checkout_html = CHECKOUT.replace('<button id="order-submit"', '<button disabled id="order-submit"')
+        await self.prepare_fast_cart_order()
+        await self.page.evaluate("setTimeout(()=>document.getElementById('order-submit').disabled=false,120)")
+        with patch.object(self.session.checkout, 'validate', new=AsyncMock(side_effect=AssertionError('不应复核'))):
+            await self.session.order.submit()
+        self.assertEqual(self.submit_hits, 1)
 
     async def test_pending_target_sync_retries_on_current_page_without_reload(self):
         self.session.task.quantity = 1

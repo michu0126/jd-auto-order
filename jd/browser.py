@@ -114,6 +114,8 @@ class Session:
         self.cart_timings = {}
         self.cart_checkout_started = False
         self.cart_checkout_reached = False
+        self.cart_checkout_page = None
+        self.cart_checkout_reached_ns = None
         self.payment_secret = PaymentSecret()
         self.payment_secret_attempted = False
         self.auth_lock = asyncio.Lock()

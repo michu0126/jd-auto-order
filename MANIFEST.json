@@ -7,12 +7,12 @@
       "bytes": 372
     },
     "README.md": {
-      "sha256": "11e8eacbed427052b092c44c62d71b83c5c1b793cbcb86efa1018b26bd543e0a",
-      "bytes": 15471
+      "sha256": "d08374bd9bb7dc7bb6875bb1d30fbf596dfa398a1e7f86fdb67d8742b998b53a",
+      "bytes": 15282
     },
     "SHARE_README.md": {
-      "sha256": "b9339d4ec240ddd71f852daeebc2111e82c46cf609be2183856d04ea3d7f64c0",
-      "bytes": 15085
+      "sha256": "578dfdbfb2c97e2c656b0eaa27f71d981fe073bd59d3364bc26d2a438fe319a0",
+      "bytes": 14896
     },
     "config.example.yaml": {
       "sha256": "4e674f9671f2d613a9c5ba39bada15e91c8af34e2e7b4c7a08a7d8f93685d0b0",
@@ -71,8 +71,8 @@
       "bytes": 1911
     },
     "core/state_machine.py": {
-      "sha256": "a94797acec719428522560d6db771530db7042799041df1b3a3e8d6c004bdf00",
-      "bytes": 4565
+      "sha256": "5c518367eccc054cab8c26aed064d5e810bbeb2804007760e989822716fa4b0e",
+      "bytes": 4594
     },
     "core/worker.py": {
       "sha256": "2c7ee8298f285a5c7689b5d72e9a5ba7532689733fbe8a83fceff83935c312d2",
@@ -87,24 +87,24 @@
       "bytes": 4011
     },
     "jd/browser.py": {
-      "sha256": "05a657386e68249ed5721122bf0c9c39183c47ace73aaa9b067e5a0d3c6c0efc",
-      "bytes": 5624
+      "sha256": "66263e6ca204d9e51e976e5612aff29de93aa55d6491101cfe2f47ff3a169722",
+      "bytes": 5708
     },
     "jd/cart.py": {
-      "sha256": "d7f6134d4111e4361f2da4c5275ba038a660895244d0ac168bcf8d7db1544611",
-      "bytes": 20847
+      "sha256": "f65ed87e3648110f1bc6f90f7d09082774c9887f9ef6facc672093cd1ccff8c2",
+      "bytes": 21279
     },
     "jd/cart_scan.py": {
       "sha256": "e1485ff512ca1fdaddfb117af3ce1cb6476f72e4f35e5095322aeda9070a0142",
       "bytes": 6915
     },
     "jd/checkout.py": {
-      "sha256": "88fe30ddd2f0ce2db75546023741d4c4f3dc0dc452e8a6e48752602a8d1bcabe",
-      "bytes": 15981
+      "sha256": "e7c70a1c261aae1a8552c7e6aab25e2543983bc8c312c5540975bcc882c46ac8",
+      "bytes": 22253
     },
     "jd/common.py": {
-      "sha256": "dd9ef687c563cfbc7b5ce81a3de2c2dfcd985fd9e88974104a7424d4ff2ff641",
-      "bytes": 15716
+      "sha256": "3917652f20f7b239cd02e8e82e2b06972bb48eda3ce39bdd11a0b3818f076724",
+      "bytes": 15872
     },
     "jd/dom.py": {
       "sha256": "a01d205ea00d40394ad76451fd54d656b7815eb5e9824f3fcaa15d5d16f1a878",
@@ -119,8 +119,8 @@
       "bytes": 8503
     },
     "jd/order.py": {
-      "sha256": "f4563e29a9487c3b4472287d5aefd1c59e256de72a9c24e4c00a27390080f5c4",
-      "bytes": 20024
+      "sha256": "1e320fcff7607dae7173eede75e3509c6001f95fc4ed7bd9928b1c7bbe782231",
+      "bytes": 21357
     },
     "jd/password_prompt.py": {
       "sha256": "2b93f80b02db3789024f0cbbe4c4d231728452dc65899a5cbbef61072ae6f69f",
@@ -139,12 +139,12 @@
       "bytes": 1454
     },
     "jd/submit_button.py": {
-      "sha256": "79a7c4495727b4394125d1c5bd8f6245e7866458ddb4303fd5c657be48013530",
-      "bytes": 2629
+      "sha256": "09ca3dde5199ff1ec7c2a792fe7b4e286d9194206d3d1f531b23abfae413f5c8",
+      "bytes": 2535
     },
     "main.py": {
-      "sha256": "7386ed7c169aa69981832e190168dd0c78df75e8d92026726cd763e4aeb73dd5",
-      "bytes": 36967
+      "sha256": "d1689daaaafe5eb933e216e4284163c6fb1750580fb8e240920976f4b688fd60",
+      "bytes": 37400
     },
     "marketplaces/__init__.py": {
       "sha256": "32f5da2892beb78a9e551569393c56807012cbd3f84d6bcab3714b74020dca26",
@@ -195,8 +195,8 @@
       "bytes": 2570
     },
     "tests/test_browser.py": {
-      "sha256": "c3d400f00c09fa9551e937e262d8b091771e9b1fcfea0adf44d0bd90f7748ac3",
-      "bytes": 125040
+      "sha256": "1fc9063aa91d0857ddaec47704c57473cd8fae8d43c9c9b5c731d5250c6e9484",
+      "bytes": 131090
     },
     "tests/test_browser_connection.py": {
       "sha256": "c55203d6376abfe4835f182897cf2731a2824eab139015e3b5130002bb9aa6a6",
@@ -235,8 +235,8 @@
       "bytes": 9456
     },
     "tests/test_payment.py": {
-      "sha256": "552bb4c7858cb3c937b8fb80546a6c164657b338f54aac462b9fbbcfd9603bf3",
-      "bytes": 13542
+      "sha256": "1281e5ab6a5da91c1f89b34c32e9a10bd24c2bc1ecc0e1abb1e171cde18926d4",
+      "bytes": 14934
     },
     "tests/test_payment_secret.py": {
       "sha256": "7b4e22b8a2f24f08e4483158dad1e67da6627bbebf30844ef092043eae3593eb",
@@ -270,6 +270,10 @@
       "sha256": "884204cd92b3f11318f2e8a007fcdbab8dfbc5069c85748d82722fa15cfb483d",
       "bytes": 4336
     },
+    "tools/verify_share_package.py": {
+      "sha256": "df7576035dd7bbe7e0169a40b9901c3c2112e229cd1c244558ad33bfdb65ce55",
+      "bytes": 9759
+    },
     "ui/app.js": {
       "sha256": "136178cd550e2846ec89d86e8adb9b72cb474aace8a59e59f7fc4cae822b4bd1",
       "bytes": 17858
@@ -297,10 +301,6 @@
     "webapp.py": {
       "sha256": "02b2311ee5dbe8aac967e3fee953c8a8fc556461f2ceeb9e306789a736ca1540",
       "bytes": 13723
-    },
-    "tools/verify_share_package.py": {
-      "sha256": "df7576035dd7bbe7e0169a40b9901c3c2112e229cd1c244558ad33bfdb65ce55",
-      "bytes": 9759
     }
   }
 }

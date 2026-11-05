@@ -156,7 +156,7 @@ class Order(PageTools):
     async def confirmed(self, oid, quote, pending=False):
         detail = "待付款订单已核实，未继续付款" if pending else "已读取成功页或通过订单中心严格匹配"
         self.s.store.finish(self.s.key, "confirmed", oid, detail)
-        self.s.store.event(self.s.task.id, "success", {"order_id": oid, "price": str(quote.total),
+        self.s.store.event(self.s.task.id, "success", {"order_id": oid, "price": str(quote.total) if quote.total is not None else None,
             "payment_status": 'paid' if self.s.auto_payment.status == 'paid' else "pending" if pending else "未核实支付状态"})
         if pending:
             payment = "订单待付款，请手动付款"
@@ -164,9 +164,10 @@ class Order(PageTools):
             payment = "在线支付，等待手动付款"
         if self.s.task.auto_pay:
             payment = '订单已生成，继续自动付款' if self.s.auto_payment.status != 'paid' else '已核对付款成功'
-        LOG.info("[%s] 已确认订单号=%s 应付=%s，%s", self.s.task.id, oid, quote.total, payment)
+        price = f"应付 ¥{quote.total}" if quote.total is not None else "金额请在订单页查看"
+        LOG.info("[%s] 已确认订单号=%s，%s，%s", self.s.task.id, oid, price, payment)
         await self.snapshot("success")
-        await notify(self.s.cfg.notification["desktop"], "京东下单成功", f"{self.s.task.name}，应付 ¥{quote.total}，订单号 {oid}，{payment}")
+        await notify(self.s.cfg.notification["desktop"], "京东下单成功", f"{self.s.task.name}，{price}，订单号 {oid}，{payment}")
 
     async def dismiss_post_submit_password(self, origin):
         if not self.s.submitted:
@@ -220,24 +221,34 @@ class Order(PageTools):
         guard = getattr(self.s, "submission_guard", None)
         if guard is not None and not retry:
             guard.check(self.s.task, self.s.target_ns)
+        fast_cart = self.s.checkout.fast_cart_ready and not retry
+        pre_submit_text = await result_body_text(self.page)
+        if fast_cart:
+            await self.s.checkout.check_fast_cart_interrupt(pre_submit_text)
         # 清掉操作之前就存在的限频提示，不能误把旧提示当作本次请求被明确拒绝。
-        existing = submission_feedback(await main_body_text(self.page))
+        existing = submission_feedback(pre_submit_text)
         if existing and existing['kind'] == 'rate_limit':
             if not await dismiss_submission_prompt(self.page, existing['message'], self.activate,
                     timeout=min(700, self.s.cfg.jd['action_timeout_ms'])):
                 raise StopOrder('结算页已有提交过快提示，但无法确认关闭，未继续点击订单按钮')
-        quote = await self.s.checkout.validate()
-        if await self.s.checkout.fill_payment_password():
+        if fast_cart:
+            quote, button = await self.s.checkout.prepare_fast_cart()
+        else:
             quote = await self.s.checkout.validate()
-        if previous is not None and quote.total > previous.total:
+            if await self.s.checkout.fill_payment_password():
+                quote = await self.s.checkout.validate()
+        if previous is not None and previous.total is not None and quote.total > previous.total:
             raise StopOrder('限频重试前应付金额上涨，停止继续提交')
         self.s.checkout_quote = quote
         self.s.auto_payment.arm(quote)
-        button = await self.find("submit")
-        if not await button.is_enabled() or await button.get_attribute("aria-disabled") == "true":
-            from core.errors import Retryable
-            raise Retryable("提交订单按钮暂不可用")
-        await self.s.checkout.assert_submission_allowed(button, final=True)
+        if not fast_cart:
+            button = await self.find("submit")
+            if not await button.is_enabled() or await button.get_attribute("aria-disabled") == "true":
+                from core.errors import Retryable
+                raise Retryable("提交订单按钮暂不可用")
+            await self.s.checkout.assert_submission_allowed(button, final=True)
+        elif not self.s.checkout.fast_cart_ready:
+            raise StopOrder('购物车结算窗口已切换，停止最终提交')
         self.s.scheduler.check_stop()
         if (self.s.target_ns is not None and
                 self.s.scheduler.now_ns() >= self.s.target_ns + int(self.s.task.retry['timeout_seconds'] * 1e9)):
@@ -275,10 +286,18 @@ class Order(PageTools):
                     click_ended_ns = self.s.scheduler.now_ns()
                     stamp = lambda ns: datetime.fromtimestamp(ns / 1e9, CST).isoformat(timespec="milliseconds")
                     click = {"started": stamp(click_started_ns), "ended": stamp(click_ended_ns),
-                        "action_completed": completed}
+                        "action_completed": completed, "fast_cart": fast_cart}
+                    for attr, name in (('cart_selected_ns', 'since_selection_ms'),
+                            ('cart_checkout_reached_ns', 'since_checkout_ms')):
+                        point = getattr(self.s, attr, None)
+                        if point is not None:
+                            click[name] = round((click_started_ns - point) / 1e6, 3)
                     self.s.store.event(self.s.task.id, "submit_click", click, update_state=False)
                     LOG.info("[%s] 提交动作校准时间：开始=%s 结束=%s 动作完成=%s；不代表订单已受理",
                         self.s.task.id, click["started"], click["ended"], completed)
+                    if fast_cart:
+                        LOG.info('[%s] 购物车直接提交（沿用页面默认支付）：勾选至提交 %.1f ms，结算页出现至提交 %.1f ms',
+                            self.s.task.id, click.get('since_selection_ms', 0), click.get('since_checkout_ms', 0))
             deadline = time.monotonic() + self.s.cfg.jd["result_timeout_seconds"]
             while time.monotonic() < deadline:
                 self.s.scheduler.check_stop()

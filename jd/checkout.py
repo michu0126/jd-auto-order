@@ -1,12 +1,15 @@
 import asyncio
 import logging
 import re
+import time
 from dataclasses import dataclass
 from decimal import Decimal
 
 from core.config import money
-from core.errors import StopOrder
+from core.errors import Retryable, StopOrder
+from jd.auth import CHALLENGE, LOGIN_GATE, QUICK_CHALLENGE
 from jd.common import PageTools, quantity_text, sku_ids
+from jd.dom import result_body_text
 from jd.submit_button import button_text, checkout_url
 
 LOG = logging.getLogger(__name__)
@@ -14,13 +17,99 @@ LOG = logging.getLogger(__name__)
 
 @dataclass
 class Quote:
-    total: Decimal
+    total: Decimal | None
     subtotal: Decimal | None
     freight: Decimal | None
     discount: str
 
 
 class Checkout(PageTools):
+    @property
+    def fast_cart_ready(self):
+        """仅接续本任务刚从购物车打开的结算页；手工页和详情页不借用选择记录。"""
+        task = self.s.task
+        return (task.mode == 'cart' and task.source == 'cart' and
+                self.s.cart_checkout_started and self.s.cart_checkout_reached and
+                self.s.cart_checkout_page is self.page and
+                self.s.cart_selection == {'sku': task.sku, 'quantity': task.quantity} and
+                checkout_url(self.page.url))
+
+    async def check_fast_cart_interrupt(self, text):
+        # 只有页面实际出现验证或登录提示时才做完整会话检查。
+        if (QUICK_CHALLENGE.search(text) or CHALLENGE.search(text) or
+                '快速验证' in text or LOGIN_GATE.search(text)):
+            await self.check_auth()
+
+    async def prepare_fast_cart(self):
+        """选中即结算：不复核商品、地址、明细，不轮询金额稳定或切换默认支付。"""
+        if not self.fast_cart_ready:
+            raise StopOrder('缺少本轮购物车选择到结算的连续操作，未启用直接提交')
+        if self.s.task.payment_method != 'online':
+            raise StopOrder('仅支持在线支付，请更新旧任务的支付方式')
+        guard = getattr(self.s, 'submission_guard', None)
+        needs_total = (self.s.task.auto_pay or self.s.task.max_price is not None or
+                       getattr(guard, 'max_total', None) is not None)
+        deadline = time.monotonic() + self.s.cfg.jd['action_timeout_ms'] / 1000
+        next_auth_check = time.monotonic() + .5
+        while True:
+            self.s.scheduler.check_stop()
+            if not checkout_url(self.page.url):
+                await self.guard()
+                raise Retryable('购物车结算页已跳转，未继续点击提交')
+            button = await self.find('submit', required=False)
+            if button is not None:
+                state = await button.evaluate("""el => {
+                    const visible = e => e.getClientRects().length && getComputedStyle(e).visibility!=='hidden';
+                    const fields=[...document.querySelectorAll('.payment-summary-password__input input')].filter(visible);
+                    const offline=[...document.querySelectorAll('.payment-channel [class^="modePaymentLi-"], .payment-item, .payment-list [data-value], [role=radio]')]
+                        .filter(e=>visible(e) && /货到付款/.test(e.innerText)).some(e=>
+                            e.matches(':checked,[aria-checked=true],[data-selected=true]') ||
+                            e.querySelector(':checked,input[aria-checked=true],.selected-payment') ||
+                            [...e.classList].some(c=>/^(item-selected|selected|curr|active)$/.test(c)||/^_selected_|^highlighting-/.test(c)));
+                    const text=(el.tagName==='INPUT'?el.value:el.innerText||el.getAttribute('aria-label')||'').replace(/\\s+/g,'');
+                    return {enabled:!el.matches(':disabled') && !el.closest('[aria-disabled=true]'),offline,
+                        payArea:!/支付|付款/.test(text) || !!el.closest('.payment-action-submit,#order-submit,#submitOrder,[class^="submitOrder-"]'),
+                        passwordCount:fields.length,
+                        passwordComplete:fields.length===1?fields[0].value.length===6:fields.length===6&&fields.every(e=>e.value.length===1)};
+                }""")
+                if state['offline']:
+                    raise StopOrder('当前页面选择了货到付款，请在京东改为在线支付后再运行')
+                if not state['payArea']:
+                    raise StopOrder('付款文案按钮不在已识别的订单提交区域，已停止最终点击')
+                if state['passwordCount']:
+                    if await self.password_error():
+                        raise StopOrder('京东提示支付密码校验未通过，停止任务')
+                    if not state['passwordComplete']:
+                        if not await self.fill_payment_password():
+                            raise StopOrder('当前结算页要求支付密码，请填写本次运行密码或在京东人工处理')
+                        # 填密码可能触发京东重新计价，只在实际改变页面后重新取提交入口。
+                        continue
+                if state['enabled']:
+                    texts = await self.page.locator(self.s.selectors['total']).evaluate_all("""nodes => nodes
+                        .filter(e=>e.getClientRects().length && getComputedStyle(e).visibility!=='hidden')
+                        .map(e=>e.innerText.trim()).filter(Boolean)""")
+                    if len(texts) > 1 and needs_total:
+                        raise StopOrder('最终应付金额存在多个候选，停止提交')
+                    total = None
+                    if len(texts) == 1:
+                        try:
+                            total = money(texts[0], allow_zero=True)
+                        except StopOrder:
+                            pass  # 结算可能先渲染金额占位符，再显示实际应付。
+                    if (total is not None and self.s.task.max_price is not None and
+                            total > self.s.task.max_price):
+                        raise StopOrder(f'最终应付 {total} 超过价格上限 {self.s.task.max_price}')
+                    if total is not None or not needs_total:
+                        # 手动付款且未设金额上限时，按钮可用就提交，金额缺失不阻塞。
+                        return Quote(total, None, None, '沿用页面默认优惠'), button
+            now = time.monotonic()
+            if now >= deadline:
+                raise Retryable('购物车结算提交按钮或应付金额仍未就绪')
+            if now >= next_auth_check:
+                await self.check_fast_cart_interrupt(await result_body_text(self.page))
+                next_auth_check = time.monotonic() + .5
+            await asyncio.sleep(.025)
+
     async def payment_selected(self, node):
         """仅用于识别页面明确选中的非在线方式，不匹配银行卡或付款方案。"""
         return await node.evaluate("""el => {

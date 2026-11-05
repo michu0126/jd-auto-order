@@ -44,7 +44,7 @@ class StateStore:
         try:
             with self.db:
                 self.db.execute("INSERT INTO submissions VALUES(?,?,?,?,?,?,?)", (key, taskid, "submitting",
-                    datetime.now(CST).isoformat(), str(price), "", "提交意图已落盘"))
+                    datetime.now(CST).isoformat(), str(price) if price is not None else "", "", "提交意图已落盘"))
         except sqlite3.IntegrityError as exc:
             raise StopOrder("同一任务已有提交记录，请先核实京东订单中心") from exc
 
